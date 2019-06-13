@@ -4,13 +4,13 @@ namespace ScriptPlayer.Shared
 {
     public class DeviceCommandInformation
     {
-        public byte PositionFromTransformed;
-        public byte PositionToTransformed;
-        public byte SpeedTransformed;
+        public int PositionFromTransformed;
+        public int PositionToTransformed;
+        public int SpeedTransformed;
 
-        public byte PositionFromOriginal;
-        public byte PositionToOriginal;
-        public byte SpeedOriginal;
+        public int PositionFromOriginal;
+        public int PositionToOriginal;
+        public int SpeedOriginal;
 
         public TimeSpan Duration;
         public double SpeedMultiplier { get; set; } = 1;

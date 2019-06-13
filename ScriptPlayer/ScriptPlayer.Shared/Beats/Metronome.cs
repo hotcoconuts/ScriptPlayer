@@ -6,7 +6,7 @@ namespace ScriptPlayer.Shared
 {
     public class Metronome
     {
-        public delegate void TickEventHandler(object sender, byte position, byte speed);
+        public delegate void TickEventHandler(object sender, int position, int speed);
 
         public double MaxSpeed { get; set; }
         public double BeatsPerMinute { get; set; }
@@ -29,8 +29,8 @@ namespace ScriptPlayer.Shared
         {
             double delta = Math.Abs(PositionTo - PositionFrom);
 
-            byte actualSpeed2 = SpeedPredictor.PredictSpeed2((byte) delta, _timer.Interval);
-            byte actualSpeed = SpeedPredictor.PredictSpeed((byte)delta, _timer.Interval);
+            int actualSpeed2 = SpeedPredictor.PredictSpeed2((int) delta, _timer.Interval);
+            int actualSpeed = SpeedPredictor.PredictSpeed((int)delta, _timer.Interval);
 
             Debug.WriteLine("PredictedSpeed: " + actualSpeed + " / " + actualSpeed2);
 
@@ -38,7 +38,7 @@ namespace ScriptPlayer.Shared
             up ^= true;
         }
 
-        protected virtual void OnTick(byte position, byte speed)
+        protected virtual void OnTick(int position, int speed)
         {
             Tick?.Invoke(this, position, speed);
         }

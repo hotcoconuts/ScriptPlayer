@@ -101,7 +101,7 @@ namespace ScriptPlayer.Shared
 
         public override async Task Set(DeviceCommandInformation information)
         {
-            await SetPosition(information.PositionToTransformed, information.SpeedTransformed);
+            await SetPosition((byte)information.PositionToTransformed, (byte)information.SpeedTransformed);
         }
 
         public override async Task Set(IntermediateCommandInformation information)

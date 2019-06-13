@@ -204,6 +204,10 @@ namespace ScriptPlayer.Shared.Scripts
                     .OrderBy(a => a.TimeStamp)
                     .ToList();
             }
+            else if (_originalScript.FirstOrDefault() is VorzeScriptAction)
+            {
+                _originalActions = VorzeToFunscriptConverter.Convert(_originalScript.Cast<VorzeScriptAction>().ToList());
+            }
             else if (_originalScript.FirstOrDefault() is FunScriptAction)
             {
                 _originalActions = _originalScript.Cast<FunScriptAction>().ToList();

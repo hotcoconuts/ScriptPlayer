@@ -61,7 +61,7 @@ namespace ScriptPlayer.Shared
                     continue;
 
                 if (entry == null)
-                    return;
+                    break;
 
                 DateTime now = DateTime.Now;
                 TimeSpan delay = now - entry.Submitted;
@@ -89,7 +89,8 @@ namespace ScriptPlayer.Shared
 
         public void Enqueue(DeviceCommandInformation information)
         {
-            _queue.ReplaceExisting(new QueueEntry<DeviceCommandInformation>(information), CompareCommandInformation);
+            _queue.Enqueue(new QueueEntry<DeviceCommandInformation>(information));
+            //_queue.ReplaceExisting(new QueueEntry<DeviceCommandInformation>(information), CompareCommandInformation);
         }
 
         private bool CompareCommandInformation(QueueEntry<DeviceCommandInformation> arg1, QueueEntry<DeviceCommandInformation> arg2)

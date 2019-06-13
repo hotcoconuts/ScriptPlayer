@@ -11,7 +11,7 @@ namespace ScriptPlayer.Shared.Scripts
             actions = actions.OrderBy(a => a.TimeStamp).ToList();
             List<FunScriptAction> result = new List<FunScriptAction>();
 
-            byte previousPosition = 0;
+            int previousPosition = 0;
 
             for (int i = 0; i < actions.Count; i++)
             {
@@ -39,7 +39,7 @@ namespace ScriptPlayer.Shared.Scripts
                     }
                     else
                     {
-                        byte newPosition = PredictPosition(previousPosition, actions[i - 1].Position, actions[i - 1].Speed, elapsed);
+                        int newPosition = PredictPosition(previousPosition, actions[i - 1].Position, actions[i - 1].Speed, elapsed);
 
                         result.Add(new FunScriptAction
                         {
@@ -78,11 +78,11 @@ namespace ScriptPlayer.Shared.Scripts
             return result;
         }
 
-        private static byte PredictPosition(byte previousPosition, byte position, byte speed, TimeSpan elapsed)
+        private static int PredictPosition(int previousPosition, int position, int speed, TimeSpan elapsed)
         {
-            byte distance = SpeedPredictor.PredictDistance(speed, elapsed);
+            int distance = SpeedPredictor.PredictDistance(speed, elapsed);
             int direction = Math.Sign(position - previousPosition);
-            byte newPosition = ClampPosition(previousPosition + direction * distance);
+            int newPosition = ClampPosition(previousPosition + direction * distance);
             return newPosition;
         }
 

@@ -13,13 +13,13 @@ namespace ScriptPlayer.Shared.Scripts
 
         static ScriptLoaderManager()
         {
-            //RegisterLoader<VorzeScriptLoader>();
+            //RegisterLoader<VorzeScriptToFunscriptLoader>();
             //RegisterLoader<RawScriptLoader>();
 
             RegisterLoader<FunScriptLoader>();
             RegisterLoader<BeatFileLoader>();
             RegisterLoader<VirtualRealPornScriptLoader>();
-            RegisterLoader<VorzeScriptToFunscriptLoader>();
+            RegisterLoader<VorzeScriptLoader>();
             RegisterLoader<FeelVrScriptLoader>();
             RegisterLoader<WankzVrScriptLoader>();
             RegisterLoader<RealTouchScriptLoader>();

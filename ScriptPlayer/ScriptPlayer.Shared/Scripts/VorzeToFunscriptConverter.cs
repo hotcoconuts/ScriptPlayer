@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace ScriptPlayer.Shared.Scripts
@@ -25,25 +26,31 @@ namespace ScriptPlayer.Shared.Scripts
 
             List<FunScriptAction> funActions = new List<FunScriptAction>();
 
+            int lastSpeed = 0;
+            int lastPosition = 50;
+            TimeSpan lastTimeStamp = actions[0].TimeStamp;
+            int newPosition;
             for (int i = 0; i < actions.Count; i++)
             {
-                // removed because vorze rotation speed changes while still rotating in the same direction are an essential feature
-                /*int samePosition = 0;
-
-                for (int j = i + 1; j < actions.Count; j++)
-                {
-                    if (actions[j].Action == actions[i].Action)
-                        samePosition++;
-                    else
-                        break;
-                }*/
-
-                // This has been modified to make Vorze CSVs round-trip better through the conversions, but other toys should still get something out of this too
+                var dur = (actions[i].TimeStamp - lastTimeStamp).TotalMilliseconds;
+                //var speedMapped = lastSpeed * 0.6 + 20;
+                double absDelta = Math.Pow(lastSpeed * 100 / 25000.0, 1 / 1.05) * dur;
+                var delta = (actions[i].Action == 0 ? absDelta : -absDelta);
+                //  double speed = 25000 * Math.Pow(delta / info.Duration.TotalMilliseconds, 1.05) / 100.0; --->
+                // Action stores direction, Parameter stores speed
+                // currently, position is simply clamped, so after going out of range the Launch will stay still in situations where the Vorze would be spinning
+                newPosition = (int)Math.Round(lastPosition + delta);
+                //newPosition = Math.Max(5, Math.Min(95, newPosition)); //clamping disabled as a test
+                
                 funActions.Add(new FunScriptAction
                 {
-                    Position = (byte)(50 + actions[i].Parameter * (actions[i].Action == 0 ? 0.5 : -0.5)),
+                    Position = newPosition,
                     TimeStamp = actions[i].TimeStamp
                 });
+
+                lastPosition = newPosition;
+                lastSpeed = actions[i].Parameter;
+                lastTimeStamp = actions[i].TimeStamp;
             }
 
             return funActions;

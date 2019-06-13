@@ -8,7 +8,7 @@ namespace ScriptPlayer.Shared.Scripts
     public class FunScriptAction : ScriptAction
     {
         [JsonProperty(PropertyName = "pos")]
-        public byte Position { get; set; }
+        public int Position { get; set; }
 
         [DebuggerHidden]
         [JsonProperty(PropertyName = "at")]

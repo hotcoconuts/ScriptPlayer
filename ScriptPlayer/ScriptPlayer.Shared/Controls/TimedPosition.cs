@@ -16,6 +16,6 @@ namespace ScriptPlayer.Shared
         public TimeSpan TimeStamp;
 
         [XmlAttribute("Position")]
-        public byte Position;
+        public int Position;
     }
 }

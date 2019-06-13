@@ -65,8 +65,8 @@ namespace ScriptPlayer.ViewModels
 
         private int _lastScriptFilterIndex = 1;
         private int _lastVideoFilterIndex = 1;
-        private byte _maxScriptPosition;
-        private byte _minScriptPosition;
+        private int _maxScriptPosition;
+        private int _minScriptPosition;
 
         public ObservableCollection<RepeatablePattern> Patterns
         {
@@ -1353,7 +1353,12 @@ namespace ScriptPlayer.ViewModels
         {
             _scriptHandler.MinIntermediateCommandDuration = Settings.CommandDelay;
             foreach (Device device in _devices)
-                device.MinDelayBetweenCommands = Settings.CommandDelay;
+            {
+                if (device.Name.Contains("Vorze A10 Cyclone SA"))
+                    device.MinDelayBetweenCommands = Settings.CommandDelay.TotalMilliseconds < 40 ? TimeSpan.FromMilliseconds(40) : Settings.CommandDelay;
+                else
+                    device.MinDelayBetweenCommands = Settings.CommandDelay;
+            }
         }
 
         public void OpenVideo()
@@ -2019,6 +2024,8 @@ namespace ScriptPlayer.ViewModels
                     await Task.Delay(delay);
             }
         }
+        
+        bool speedbasedDevicesConnected;
 
         private void DeviceController_DeviceRemoved(object sender, Device device)
         {
@@ -2036,6 +2043,13 @@ namespace ScriptPlayer.ViewModels
 
             if (Settings.NotifyDevices)
                 OnRequestOverlay("Device Removed: " + device.Name, TimeSpan.FromSeconds(8));
+
+            speedbasedDevicesConnected = false;
+            foreach (var dev in _devices)
+            {
+                if (dev is ButtplugDevice)
+                    speedbasedDevicesConnected = true;
+            }
         }
 
         private void DeviceController_DeviceFound(object sender, Device device)
@@ -2053,6 +2067,13 @@ namespace ScriptPlayer.ViewModels
 
             if (Settings.NotifyDevices)
                 OnRequestOverlay("Device Connected: " + device.Name, TimeSpan.FromSeconds(8));
+
+            speedbasedDevicesConnected = false;
+            foreach (var dev in _devices)
+            {
+                if (dev is ButtplugDevice)
+                    speedbasedDevicesConnected = true;
+            }
         }
 
         private bool ShouldInvokeInstead(Action action)
@@ -2237,19 +2258,19 @@ namespace ScriptPlayer.ViewModels
         {
             IEnumerable<ScriptAction> actions = _scriptHandler.GetScript();
 
-            byte minPos = 99;
-            byte maxPos = 0;
+            int minPos = 99;
+            int maxPos = 0;
 
             foreach (ScriptAction action in actions)
                 if (action is FunScriptAction funscript)
                 {
-                    byte position = funscript.Position;
+                    int position = funscript.Position;
                     minPos = Math.Min(minPos, position);
                     maxPos = Math.Max(maxPos, position);
                 }
                 else if (action is RawScriptAction rawscript)
                 {
-                    byte position = rawscript.Position;
+                    int position = rawscript.Position;
                     minPos = Math.Min(minPos, position);
                     maxPos = Math.Max(maxPos, position);
                 }
@@ -2366,18 +2387,18 @@ namespace ScriptPlayer.ViewModels
         {
             TimeSpan duration = e.NextAction.TimeStamp - e.PreviousAction.TimeStamp;
             TimeSpan durationStretched = duration.Divide(TimeSource.PlaybackRate);
-            byte currentPositionTransformed = TransformPosition(e.PreviousAction.Position, e.PreviousAction.TimeStamp);
-            byte nextPositionTransformed = TransformPosition(e.NextAction.Position, e.NextAction.TimeStamp);
+            int currentPositionTransformed = TransformPosition(e.PreviousAction.Position, e.PreviousAction.TimeStamp);
+            int nextPositionTransformed = TransformPosition(e.NextAction.Position, e.NextAction.TimeStamp);
 
             CurrentPosition = (1 - e.Progress) * (currentPositionTransformed / 99.0) + (e.Progress) * (nextPositionTransformed / 99.0);
 
             if (currentPositionTransformed == nextPositionTransformed) return;
 
-            byte speedOriginal =
+            int speedOriginal =
                 SpeedPredictor.PredictSpeed(
-                    (byte)Math.Abs(e.PreviousAction.Position - e.NextAction.Position), durationStretched);
-            byte speedTransformed =
-                SpeedPredictor.PredictSpeed((byte)Math.Abs(currentPositionTransformed - nextPositionTransformed), durationStretched);
+                    (int)Math.Abs(e.PreviousAction.Position - e.NextAction.Position), durationStretched);
+            int speedTransformed =
+                SpeedPredictor.PredictSpeed((int)Math.Abs(currentPositionTransformed - nextPositionTransformed), durationStretched);
             speedTransformed = ClampSpeed(speedTransformed * Settings.SpeedMultiplier);
 
             //Debug.WriteLine($"{nextPositionTransformed} @ {speedTransformed}");
@@ -2442,26 +2463,25 @@ namespace ScriptPlayer.ViewModels
                 TimeSpan duration = eventArgs.NextAction.TimeStamp - eventArgs.CurrentAction.TimeStamp;
                 TimeSpan durationStretched = duration.Divide(TimeSource.PlaybackRate);
 
-                byte currentPositionTransformed =
+                int currentPositionTransformed =
                     TransformPosition(eventArgs.CurrentAction.Position, eventArgs.CurrentAction.TimeStamp);
-                byte nextPositionTransformed =
+                int nextPositionTransformed =
                     TransformPosition(eventArgs.NextAction.Position, eventArgs.NextAction.TimeStamp);
 
                 // Execute next movement
 
-                if (currentPositionTransformed != nextPositionTransformed)
+                if (speedbasedDevicesConnected || currentPositionTransformed != nextPositionTransformed)
                 {
-
-                    byte speedOriginal =
+                    int speedOriginal =
                         SpeedPredictor.PredictSpeed(
-                            (byte)Math.Abs(eventArgs.CurrentAction.Position - eventArgs.NextAction.Position),
+                            (int)Math.Abs(eventArgs.CurrentAction.Position - eventArgs.NextAction.Position),
                             durationStretched);
-                    byte speedTransformed =
+                    int speedTransformed =
                         SpeedPredictor.PredictSpeed(
-                            (byte)Math.Abs(currentPositionTransformed - nextPositionTransformed),
+                            (int)Math.Abs(currentPositionTransformed - nextPositionTransformed),
                             durationStretched);
                     speedTransformed = ClampSpeed(speedTransformed * Settings.SpeedMultiplier);
-
+                    
                     DeviceCommandInformation info = new DeviceCommandInformation
                     {
                         Duration = duration,
@@ -2477,7 +2497,7 @@ namespace ScriptPlayer.ViewModels
                         SpeedMin = Settings.MinSpeed / 99.0,
                         SpeedMax = Settings.MaxSpeed / 99.0,
                     };
-
+                    
                     SetDevices(info);
                 }
 
@@ -2592,18 +2612,18 @@ namespace ScriptPlayer.ViewModels
             }
         }
 
-        private byte ClampSpeed(double speed)
+        private int ClampSpeed(double speed)
         {
-            return (byte)Math.Min(Settings.MaxSpeed, Math.Max(Settings.MinSpeed, speed));
+            return (int)Math.Min(Settings.MaxSpeed, Math.Max(Settings.MinSpeed, speed));
         }
 
-        private byte TransformPosition(byte pos, byte inMin, byte inMax, double timestamp)
+        private int TransformPosition(int pos, int inMin, int inMax, double timestamp)
         {
             double relative = (double)(pos - inMin) / (inMax - inMin);
             relative = Math.Min(1, Math.Max(0, relative));
 
-            byte minPosition = Settings.MinPosition;
-            byte maxPosition = Settings.MaxPosition;
+            int minPosition = Settings.MinPosition;
+            int maxPosition = Settings.MaxPosition;
             bool invert = Settings.InvertPosition;
 
             if (invert)
@@ -2643,24 +2663,24 @@ namespace ScriptPlayer.ViewModels
                     throw new ArgumentOutOfRangeException();
             }
 
-            range = (byte)(maxPosition - minPosition);
+            range = (int)(maxPosition - minPosition);
 
-            byte absolute = (byte)(minPosition + range * relative);
+            int absolute = (int)(minPosition + range * relative);
 
             return SpeedPredictor.ClampValue(absolute);
         }
 
-        private void GetRange(ref byte minPosition, ref byte maxPosition, double range, double factor)
+        private void GetRange(ref int minPosition, ref int maxPosition, double range, double factor)
         {
             double actualRange = (maxPosition - minPosition) * (1.0 - range);
             double newMin = minPosition + actualRange * factor;
             double newMax = maxPosition - actualRange * (1 - factor);
 
-            minPosition = (byte)newMin;
-            maxPosition = (byte)newMax;
+            minPosition = (int)newMin;
+            maxPosition = (int)newMax;
         }
 
-        private byte TransformPosition(byte pos, TimeSpan timeStamp)
+        private int TransformPosition(int pos, TimeSpan timeStamp)
         {
             return TransformPosition(pos, _minScriptPosition, _maxScriptPosition, timeStamp.TotalSeconds);
         }

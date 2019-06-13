@@ -139,7 +139,7 @@ namespace ScriptPlayer.Shared
 
                 if (device.AllowedMessages.ContainsKey(nameof(FleshlightLaunchFW12Cmd)))
                 {
-                    message = new FleshlightLaunchFW12Cmd(device.Index, information.SpeedTransformed, information.PositionToTransformed);
+                    message = new FleshlightLaunchFW12Cmd(device.Index, (uint)information.SpeedTransformed, (uint)information.PositionToTransformed);
                 }
                 else if (device.AllowedMessages.ContainsKey(nameof(KiirooCmd)))
                 {
@@ -156,7 +156,8 @@ namespace ScriptPlayer.Shared
                 else if (device.AllowedMessages.ContainsKey(nameof(VorzeA10CycloneCmd)))
                 {
                     // position is used as speed here
-                    message = new VorzeA10CycloneCmd(device.Index, CommandConverter.SimpleVorzeSpeed(information), information.PositionFromOriginal > 50);
+                    message = new VorzeA10CycloneCmd(device.Index, CommandConverter.LaunchToVorzeSpeed(information), information.PositionToOriginal > information.PositionFromOriginal);
+                    Debug.WriteLine(CommandConverter.LaunchToVorzeSpeed(information));
                 }
                 else if (device.AllowedMessages.ContainsKey(nameof(LovenseCmd)))
                 {

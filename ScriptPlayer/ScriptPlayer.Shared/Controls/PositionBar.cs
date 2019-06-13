@@ -204,6 +204,30 @@ namespace ScriptPlayer.Shared
             InvalidateVisual();
         }
 
+        private int GetPositionAtTime(TimeSpan time)
+        {
+            if (Positions.Count == 0)
+                return 50;
+
+            TimeSpan seek = TimeSpan.Zero;
+            int i;
+            for (i = 0; i < Positions.Count; i++)
+            {
+                seek = Positions[i].TimeStamp;
+                if (seek > time)
+                    break;
+                else if (i == Positions.Count - 1)
+                    return Positions[i].Position;
+            }
+
+            if (i == 0)
+                return Positions[i].Position;
+
+            double lerper = ((time - Positions[i - 1].TimeStamp).TotalSeconds / (Positions[i].TimeStamp - Positions[i - 1].TimeStamp).TotalSeconds);
+
+            return (int)(Positions[i - 1].Position + lerper * (Positions[i].Position - Positions[i-1].Position));
+        }
+
         private Point GetPointFromPosition(TimedPosition position)
         {
             double x = PositionToX(position.TimeStamp);
@@ -217,7 +241,7 @@ namespace ScriptPlayer.Shared
             return (timeStamp - (Progress - TotalDisplayedDuration.Multiply(Midpoint))).Divide(TotalDisplayedDuration) * ActualWidth;
         }
 
-        private double PositionToY(byte position)
+        private double PositionToY(int position)
         {
             return (ActualHeight - 2 * CircleRadius) * ((99.0 - position) / 99.0) + CircleRadius;
         }
@@ -248,8 +272,16 @@ namespace ScriptPlayer.Shared
 
         private static double CircleRadius = 4;
 
+        private Point Offset;
+
+        private Point AddPoints(Point a, Point b) { return new Point(a.X + b.X, a.Y + b.Y); }
+
         protected override void OnRender(DrawingContext drawingContext)
         {
+            var y = PositionToY(GetPositionAtTime(Progress));
+            var clampedY = Math.Min(ActualHeight, Math.Max(0, y));
+            Offset = new Point(0, clampedY - y);
+
             if (_down)
             {
                 UpdateSelectedPosition(false);
@@ -265,7 +297,8 @@ namespace ScriptPlayer.Shared
             drawingContext.PushOpacity(0.3);
             for (int i = 0; i <= 4; i++)
             {
-                drawingContext.DrawLine(redPen, new Point(0, i * ActualHeight / 4.0), new Point(ActualWidth, i * ActualHeight / 4.0));
+                var yoffset = (Offset.Y % (ActualHeight / 4.0));
+                drawingContext.DrawLine(redPen, new Point(0, i * ActualHeight / 4.0 + yoffset), new Point(ActualWidth, i * ActualHeight / 4.0 + yoffset));
             }
             drawingContext.Pop();
 
@@ -303,7 +336,7 @@ namespace ScriptPlayer.Shared
                         double speed = SpeedPredictor.PredictSpeed2(absoluteBeatPositions[i - 1].Position, absoluteBeatPositions[i].Position, duration) / 99.0;
 
                         Color color = HeatMapGenerator.GetColorAtPosition(HeatMapGenerator.HeatMap, speed);
-                        drawingContext.DrawLine(new Pen(new SolidColorBrush(color), 1), beatPoints[i-1], beatPoints[i] );
+                        drawingContext.DrawLine(new Pen(new SolidColorBrush(color), 1), AddPoints(beatPoints[i-1], Offset), AddPoints(beatPoints[i], Offset) );
                     }
                     
 
@@ -321,7 +354,7 @@ namespace ScriptPlayer.Shared
                         }
                         Color fillColor = HeatMapGenerator.MixColors(color, Colors.Black, 0.5);
 
-                        drawingContext.DrawEllipse(new SolidColorBrush(fillColor), new Pen(new SolidColorBrush(color), 1), beatPoints[i], CircleRadius, CircleRadius);   
+                        drawingContext.DrawEllipse(new SolidColorBrush(fillColor), new Pen(new SolidColorBrush(color), 1), AddPoints(beatPoints[i], Offset), CircleRadius, CircleRadius);   
                     }
                 }
             }

@@ -9,26 +9,26 @@ namespace ScriptPlayer.Shared
 
         // Intervall ~= (Range / 99) * (Speed / 99) * 1/6s
         // (Speed * 99) ~= Intervall / (Range / 99.0 * 1/6s)
-        public static byte PredictSpeed(byte range, TimeSpan duration)
+        public static int PredictSpeed(int range, TimeSpan duration)
         {
             double relativeLength = range / 99.0;
             double durationAtFullSpeed = TurnaroundDelay + relativeLength / FullLengthsPerSecond;
             double requiredSpeed = durationAtFullSpeed / duration.TotalSeconds;
-            byte actualSpeed = ClampValue(requiredSpeed * 99.0);
+            int actualSpeed = ClampValue(requiredSpeed * 99.0);
             return actualSpeed;
         }
 
-        public static byte PredictDistance(byte speed, TimeSpan duration)
+        public static int PredictDistance(int speed, TimeSpan duration)
         {
             double usableTime = duration.TotalSeconds - TurnaroundDelay;
             double distance = usableTime * (FullLengthsPerSecond * (speed / 99.0));
-            byte absoluteDistance = ClampValue(distance * 99.0);
+            int absoluteDistance = ClampValue(distance * 99.0);
             return absoluteDistance;
         }
 
-        public static byte ClampValue(double value)
+        public static int ClampValue(double value)
         {
-            return (byte)Math.Min(99, Math.Max(0, Math.Round(value, MidpointRounding.AwayFromZero)));
+            return (int)Math.Min(99, Math.Max(0, Math.Round(value, MidpointRounding.AwayFromZero)));
         }
 
         //by funjack:
@@ -37,16 +37,16 @@ namespace ScriptPlayer.Shared
         //speed = int (25000 * math.Pow(float64(mil), -1.05))
         //return speed
 
-        public static byte PredictSpeed2(byte range, TimeSpan duration)
+        public static int PredictSpeed2(int range, TimeSpan duration)
         {
             double mil = duration.TotalMilliseconds * 90 / range;
             double speed = 25000 * Math.Pow(mil, -1.05);
             return ClampValue(speed);
         }
 
-        public static byte PredictSpeed2(byte pFrom, byte pTo, TimeSpan duration)
+        public static int PredictSpeed2(int pFrom, int pTo, TimeSpan duration)
         {
-            return PredictSpeed2((byte) Math.Abs(pFrom - pTo), duration);
+            return PredictSpeed2((int) Math.Abs(pFrom - pTo), duration);
         }
     }
 }
