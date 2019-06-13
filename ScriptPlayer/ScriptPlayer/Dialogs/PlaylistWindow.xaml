@@ -8,10 +8,15 @@
         xmlns:controls="clr-namespace:ScriptPlayer.Shared.Controls;assembly=ScriptPlayer.Shared"
         xmlns:converters="clr-namespace:ScriptPlayer.Converters"
         xmlns:shared="clr-namespace:ScriptPlayer.Shared;assembly=ScriptPlayer.Shared"
+        xmlns:dialogs="clr-namespace:ScriptPlayer.Dialogs"
         mc:Ignorable="d" DataContext="{Binding RelativeSource={RelativeSource Self}, Path=ViewModel}"
         Topmost="{Binding Settings.StayOnTop}"
-        Title="Playlist" Height="300" Width="300" WindowStyle="ToolWindow">
+        Title="Playlist" Height="423" Width="300" WindowStyle="ToolWindow">
     <Window.Resources>
+        <ContextMenu x:Key="ItemContextMenu">
+            <MenuItem Header="Open in Explorer" Command="{Binding RelativeSource={RelativeSource AncestorType=ContextMenu}, Path=PlacementTarget.Tag.Playlist.OpenInExplorerCommand}"
+                      CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=ContextMenu}, Path=PlacementTarget.DataContext}"/>
+        </ContextMenu>
         <converters:DurationConverter x:Key="DurationConverter"/>
         <Style TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Static ToolBar.ButtonStyleKey}}">
             <Setter Property="Focusable" Value="False"/>
@@ -35,11 +40,15 @@
                 <MenuItem Header="Add Files" Command="{Binding AddScriptsToPlaylistCommand}"/>
                 <MenuItem Header="Add Folder" Command="{Binding AddFolderToPlaylistCommand}"/>
                 <Separator/>
-                <MenuItem Header="Remove Missing Files" Command="{Binding RemoveMissingFilesFromPlaylistCommand}"/>
+                <MenuItem Header="Remove Missing Entries" Command="{Binding RemoveMissingEntriesFromPlaylistCommand}"/>
+                <MenuItem Header="Remove Incomplete Entries" Command="{Binding RemoveIncompleteEntriesFromPlaylistCommand}"/>
+                <MenuItem Header="Recheck All Entries" Command="{Binding Playlist.RecheckAllCommand}"/>
                 <Separator/>
                 <MenuItem Header="Load Playlist" Command="{Binding LoadPlaylistCommand}"/>
                 <MenuItem Header="Save Playlist" Command="{Binding SavePlaylistCommand}"/>
                 <MenuItem Header="Clear Playlist" Command="{Binding Playlist.ClearPlaylistCommand}"/>
+                <Separator/>
+                <MenuItem Header="Generate Thumbnails" Command="{Binding Playlist.GenerateThumbnailsForSelectedVideosCommand}"></MenuItem>
             </MenuItem>
             <MenuItem Header="Sort">
                 <MenuItem Header="Duration (ascending)"  Command="{Binding Playlist.SortByDurationCommand}" CommandParameter="{shared:Boolean true}"/>
@@ -48,26 +57,67 @@
                 <MenuItem Header="Name (ascending)"  Command="{Binding Playlist.SortByNameCommand}" CommandParameter="{shared:Boolean true}"/>
                 <MenuItem Header="Name (descending)"  Command="{Binding Playlist.SortByNameCommand}" CommandParameter="{shared:Boolean false}"/>
                 <Separator/>
+                <MenuItem Header="Path (ascending)"  Command="{Binding Playlist.SortByPathCommand}" CommandParameter="{shared:Boolean true}"/>
+                <MenuItem Header="Path (descending)"  Command="{Binding Playlist.SortByPathCommand}" CommandParameter="{shared:Boolean false}"/>
+                <Separator/>
                 <MenuItem Header="Shuffle" Command="{Binding Playlist.SortShuffleCommand}"/>
             </MenuItem>
         </Menu>
-        <ListBox x:Name="lstEntries" Grid.Row="1" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Margin="10,10,10,42" ItemsSource="{Binding Path=Playlist.Entries}" SelectedItem="{Binding Path=Playlist.SelectedEntry, Mode=TwoWay}" AllowDrop="True" Drop="ListBox_Drop">
+
+        <TextBox x:Name="txtSearch" Text="{Binding Path=Playlist.Filter, UpdateSourceTrigger=PropertyChanged}" Height="22" Margin="10,10,10,0" Grid.Row="1" TextWrapping="Wrap" VerticalAlignment="Top"/>
+
+        <ListBox x:Name="lstEntries" Grid.Row="1" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Margin="10,41,10,77" ItemsSource="{Binding Path=Playlist.FilteredEntries}" SelectedItem="{Binding Path=Playlist.SelectedEntry, Mode=TwoWay}" SelectionChanged="LstEntries_OnSelectionChanged" AllowDrop="True" Drop="ListBox_Drop" SelectionMode="Extended">
             <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">
                     <EventSetter Event="MouseDoubleClick" Handler="PlaylistEntry_DoubleClicked"/>
                     <Setter Property="ToolTip" Value="{Binding Fullname}"/>
                     <Setter Property="HorizontalContentAlignment" Value="Stretch"></Setter>
+                    <Setter Property="ContextMenu" Value="{StaticResource ItemContextMenu}"></Setter>
+                    <Setter Property="Tag" Value="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=dialogs:PlaylistWindow}, Path=DataContext}"></Setter>
                 </Style>
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
                 <DataTemplate DataType="viewModels:PlaylistEntry">
                     <DockPanel HorizontalAlignment="Stretch">
-                        <TextBlock Text="{Binding Path=Duration, Converter={StaticResource DurationConverter}}" DockPanel.Dock="Right" Margin="8,0,2,0"/>
+                        <DockPanel.Style>
+                            <Style TargetType="FrameworkElement">
+                                <Style.Setters>
+                                    <Setter Property="TextElement.Foreground" Value="DimGray"/>
+                                </Style.Setters>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Status}" Value="{x:Static viewModels:PlaylistEntryStatus.Loading}">
+                                        <Setter Property="TextElement.Foreground" Value="DimGray"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Status}" Value="{x:Static viewModels:PlaylistEntryStatus.FilesOk}">
+                                        <Setter Property="TextElement.Foreground" Value="Black"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Status}" Value="{x:Static viewModels:PlaylistEntryStatus.MissingFile}">
+                                        <Setter Property="TextElement.Foreground" Value="Red"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DockPanel.Style>
+                        <TextBlock Text="{Binding Path=Duration, Converter={StaticResource DurationConverter}}" DockPanel.Dock="Right" Margin="8,0,2,0" />
                         <TextBlock Text="{Binding Shortname}" DockPanel.Dock="Left" TextTrimming="CharacterEllipsis" Margin="2,0,0,0"/>
                     </DockPanel>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Margin="10,0,10,37" Height="35" VerticalAlignment="Bottom">
+            <Run Text="Playlist: "/>
+            <Run Text="{Binding Mode=OneWay, Path=Playlist.Entries.Count}"/>
+            <Run Text="entries ["/>
+            <Run Text="{Binding Mode=OneWay, Path=Playlist.TotalDurationString}"/>
+            <Run Text="]"/>
+            <LineBreak/>
+            <Run Text="Selection: "/>
+            <Run Text="{Binding Mode=OneWay, Path=Playlist.SelectedEntries.Count}"/>
+            <Run Text="entries ["/>
+            <Run Text="{Binding Mode=OneWay, Path=Playlist.SelectedDurationString}"/>
+            <Run Text="]"/>
+        </TextBlock>
+
         <UniformGrid Margin="10,0,10,10" Height="27" VerticalAlignment="Bottom" Grid.Row="1" Columns="9">
             <Button ToolTip="Move First" Command="{Binding Playlist.MoveSelectedEntryFirstCommand}" 
                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
@@ -108,3 +158,4 @@
         </UniformGrid>
     </Grid>
 </Window>
+

@@ -14,6 +14,21 @@
     <WarningLevel>4</WarningLevel>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFrameworkProfile />
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>false</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>false</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>true</MapFileExtensions>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -37,6 +52,9 @@
   <PropertyGroup>
     <ApplicationIcon>ScriptPlayerIcon.ico</ApplicationIcon>
   </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject>ScriptPlayer.App</StartupObject>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="FMUtils.KeyboardHook, Version=1.0.140.2145, Culture=neutral, PublicKeyToken=1acd76c568cde84e, processorArchitecture=MSIL">
       <HintPath>..\packages\FMUtils.KeyboardHook.1.0.140.2145\lib\net40-Client\FMUtils.KeyboardHook.dll</HintPath>
@@ -47,14 +65,11 @@
     <Reference Include="FontAwesome.Net, Version=1.1.1.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\FontAwesomeDotNet.1.1.1\lib\FontAwesome.Net.dll</HintPath>
     </Reference>
-    <Reference Include="JetBrains.Annotations, Version=11.1.0.0, Culture=neutral, PublicKeyToken=1010a0d8d6380325, processorArchitecture=MSIL">
-      <HintPath>..\packages\JetBrains.Annotations.11.1.0\lib\net20\JetBrains.Annotations.dll</HintPath>
+    <Reference Include="JetBrains.Annotations, Version=2019.1.1.0, Culture=neutral, PublicKeyToken=1010a0d8d6380325, processorArchitecture=MSIL">
+      <HintPath>..\packages\JetBrains.Annotations.2019.1.1\lib\net20\JetBrains.Annotations.dll</HintPath>
     </Reference>
-    <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.11.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="NJsonSchema, Version=9.10.65.0, Culture=neutral, PublicKeyToken=c2f9c3bdfae56102, processorArchitecture=MSIL">
-      <HintPath>..\packages\NJsonSchema.9.10.65\lib\net45\NJsonSchema.dll</HintPath>
+    <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.12.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="NLog, Version=4.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
       <HintPath>..\packages\NLog.4.5.7\lib\net45\NLog.dll</HintPath>
@@ -94,8 +109,30 @@
     <Compile Include="Converters\BooleanAndConverter.cs" />
     <Compile Include="Converters\CollectionNullOrEmptyToVisibilityConverter.cs" />
     <Compile Include="Converters\DurationConverter.cs" />
+    <Compile Include="Converters\EqualsConverter.cs" />
+    <Compile Include="Dialogs\AttributionDialog.xaml.cs">
+      <DependentUpon>AttributionDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\PreviewGeneratorDialog.xaml.cs">
+      <DependentUpon>PreviewGeneratorDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\ThumbnailGeneratorDialog.xaml.cs">
+      <DependentUpon>ThumbnailGeneratorDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\KodiConnectionSettingsDialog.xaml.cs">
+      <DependentUpon>KodiConnectionSettingsDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\PreviewGeneratorSettings.xaml.cs">
+      <DependentUpon>PreviewGeneratorSettings.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\SceneSelectorDialog.xaml.cs">
+      <DependentUpon>SceneSelectorDialog.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Dialogs\ShortcutInputDialog.xaml.cs">
       <DependentUpon>ShortcutInputDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\ThumbnailGeneratorSettingsDialog.xaml.cs">
+      <DependentUpon>ThumbnailGeneratorSettingsDialog.xaml</DependentUpon>
     </Compile>
     <Compile Include="Dialogs\ZoomPlayerConnectionSettingsDialog.xaml.cs">
       <DependentUpon>ZoomPlayerConnectionSettingsDialog.xaml</DependentUpon>
@@ -109,6 +146,9 @@
     <Compile Include="FlashOverlay.xaml.cs">
       <DependentUpon>FlashOverlay.xaml</DependentUpon>
     </Compile>
+    <Compile Include="ViewModels\CommandLineSplitter.cs" />
+    <Compile Include="ViewModels\Constants.cs" />
+    <Compile Include="ViewModels\InstanceHandler.cs" />
     <Compile Include="ViewModels\PlaybackMode.cs" />
     <Compile Include="ViewModels\PlayerStateModel.cs" />
     <Compile Include="ViewModels\SettingsViewModel.cs" />
@@ -149,7 +189,19 @@
     <Compile Include="ViewModels\RequestEventArgs.cs" />
     <Compile Include="ViewModels\RequestFileEventArgs.cs" />
     <Compile Include="ViewModels\TestPatternDefinition.cs" />
+    <Page Include="Dialogs\AttributionDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Dialogs\ButtplugConnectionSettingsDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\PreviewGeneratorDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\ThumbnailGeneratorDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -157,7 +209,23 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Dialogs\KodiConnectionSettingsDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\PreviewGeneratorSettings.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\SceneSelectorDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Dialogs\ShortcutInputDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\ThumbnailGeneratorSettingsDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -255,6 +323,18 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Images\ScriptPlayerIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <BootstrapperPackage Include=".NETFramework,Version=v4.6.2">
+      <Visible>False</Visible>
+      <ProductName>Microsoft .NET Framework 4.6.2 %28x86 and x64%29</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

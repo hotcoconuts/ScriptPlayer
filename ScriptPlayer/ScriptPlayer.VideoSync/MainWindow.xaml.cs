@@ -200,8 +200,8 @@ namespace ScriptPlayer.VideoSync
 
         private void RefreshSampler()
         {
-            Sampler.Resolution = videoPlayer.Resolution;
-            Sampler.Source = videoPlayer.VideoBrush;
+            Sampler.Resolution = videoPlayer.Player.Resolution;
+            Sampler.Source = videoPlayer.Player.VideoBrush;
             Sampler.TimeSource = videoPlayer.TimeSource;
             Sampler.Refresh();
         }
@@ -1438,6 +1438,9 @@ namespace ScriptPlayer.VideoSync
                     {
                         double multiplier = e.Key == Key.Right ? 1 : -1;
 
+                        if (cckRTL.IsChecked == true)
+                            multiplier *= -1;
+
                         if (control && shift)
                             ShiftTime(TimeSpan.FromMilliseconds(multiplier * 100));
                         else if (control)
@@ -2213,7 +2216,7 @@ namespace ScriptPlayer.VideoSync
             if (videoPlayer == null)
                 return;
 
-            Brush heatmap = HeatMapGenerator.Generate2(Beats.ToList(), TimeSpan.Zero, videoPlayer.Duration);
+            Brush heatmap = HeatMapGenerator.Generate2(Beats.ToList(), TimeSpan.FromSeconds(10), TimeSpan.Zero, videoPlayer.Duration);
             SeekBar.Background = heatmap;
         }
 
@@ -2250,6 +2253,46 @@ namespace ScriptPlayer.VideoSync
         {
             ShiftSelection(TimeSpan.FromMilliseconds(BeatBar.SoundDelay));
             BeatBar.SoundDelay = 0;
+        }
+
+        private void BtnYMinus_Click(object sender, RoutedEventArgs e)
+        {
+            SampleY = Math.Max(0, SampleY - 1);
+        }
+
+        private void BtnYPlus_Click(object sender, RoutedEventArgs e)
+        {
+            SampleY++;
+        }
+
+        private void BtnWMinus_Click(object sender, RoutedEventArgs e)
+        {
+            SampleW = Math.Max(1, SampleW - 1);
+        }
+
+        private void BtnWPlus_Click(object sender, RoutedEventArgs e)
+        {
+            SampleW++;
+        }
+
+        private void BtnXMinus_Click(object sender, RoutedEventArgs e)
+        {
+            SampleX = Math.Max(0, SampleX - 1);
+        }
+
+        private void BtnXPlus_Click(object sender, RoutedEventArgs e)
+        {
+            SampleX++;
+        }
+
+        private void BtnHMinus_Click(object sender, RoutedEventArgs e)
+        {
+            SampleH = Math.Max(1, SampleH - 1);
+        }
+
+        private void BtnHPlus_Click(object sender, RoutedEventArgs e)
+        {
+            SampleH++;
         }
     }
 }

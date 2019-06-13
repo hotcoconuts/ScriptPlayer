@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Buttplug.Client;
+using Buttplug.Client.Connectors.WebsocketConnector;
 using Buttplug.Core;
 using Buttplug.Core.Messages;
 using JetBrains.Annotations;
@@ -17,10 +18,12 @@ namespace ScriptPlayer.Shared
 {
     public class ButtplugAdapter : DeviceController, INotifyPropertyChanged, IDisposable
     {
-        private ButtplugWSClient _client;
+        private ButtplugClient _client;
         private readonly SemaphoreSlim _clientLock = new SemaphoreSlim(1);
         private readonly string _url;
         private readonly List<ButtplugDevice> _devices;
+
+        public VibratorConversionMode VibratorConversionMode { get; set; } = VibratorConversionMode.PositionToSpeed;
 
         public ButtplugAdapter(ButtplugConnectionSettings settings)
         {
@@ -28,33 +31,31 @@ namespace ScriptPlayer.Shared
             _url = settings.Url;
         }
 
-        private void Client_DeviceAddedOrRemoved(object sender, DeviceEventArgs deviceEventArgs)
+        private void Client_DeviceAdded(object sender, DeviceAddedEventArgs deviceEventArgs)
         {
-            ButtplugClientDevice device = deviceEventArgs.Device; 
-            DeviceEventArgs.DeviceAction action = deviceEventArgs.Action;
+            AddDevice(deviceEventArgs.Device);
+        }
 
-            switch (action)
-            {
-                case DeviceEventArgs.DeviceAction.ADDED:
-                    AddDevice(device);
-                    break;
-                case DeviceEventArgs.DeviceAction.REMOVED:
-                    RemoveDevice(device);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+
+        private void Client_DeviceRemoved(object sender, DeviceRemovedEventArgs deviceEventArgs)
+        {
+            RemoveDevice(deviceEventArgs.Device);
         }
 
         public async Task<bool> Connect()
         {
             try
             {
-                var client = new ButtplugWSClient("ScriptPlayer");
-                client.DeviceAdded += Client_DeviceAddedOrRemoved;
-                client.DeviceRemoved += Client_DeviceAddedOrRemoved;
+                var client = new ButtplugClient("ScriptPlayer", new ButtplugWebsocketConnector(new Uri(_url)));
+                client.DeviceAdded += Client_DeviceAdded;
+                client.DeviceRemoved += Client_DeviceRemoved;
+                client.ErrorReceived += Client_ErrorReceived;
+                client.Log += Client_Log;
+                client.PingTimeout += Client_PingTimeout;
+                client.ScanningFinished += Client_ScanningFinished;
+                client.ServerDisconnect += Client_ServerDisconnect;
 
-                await client.Connect(new Uri(_url));
+                await client.ConnectAsync();
                 _client = client;
 
                 return true;
@@ -68,14 +69,29 @@ namespace ScriptPlayer.Shared
             }
         }
 
-        private void AddUnknownDevices(List<ButtplugClientDevice> devices)
+        private void Client_ServerDisconnect(object sender, EventArgs e)
         {
-            List<ButtplugClientDevice> newDevices = devices.Where(device => _devices.All(d => d.Index != device.Index)).ToList();
+            //TODO
+        }
 
-            foreach (ButtplugClientDevice device in newDevices)
-            {
-                AddDevice(device);
-            }
+        private void Client_ScanningFinished(object sender, EventArgs e)
+        {
+            //TODO
+        }
+
+        private void Client_PingTimeout(object sender, EventArgs e)
+        {
+            //TODO
+        }
+
+        private void Client_Log(object sender, LogEventArgs logEventArgs)
+        {
+            //TODO
+        }
+
+        private void Client_ErrorReceived(object sender, ButtplugExceptionEventArgs buttplugExceptionEventArgs)
+        {
+            //TODO
         }
 
         private void RemoveDevice(ButtplugDevice device)
@@ -103,22 +119,52 @@ namespace ScriptPlayer.Shared
         {
             if (_client == null) return;
 
-            if (device.AllowedMessages.ContainsKey(nameof(SingleMotorVibrateCmd)))
+            if (device.AllowedMessages.ContainsKey(typeof(SingleMotorVibrateCmd)))
             {
-                double speedFrom = CommandConverter.LaunchToVibrator(information.DeviceInformation.PositionFromOriginal);
-                double speedTo = CommandConverter.LaunchToVibrator(information.DeviceInformation.PositionToOriginal);
+                double speed;
+                switch (VibratorConversionMode)
+                {
+                    case VibratorConversionMode.PositionToSpeed:
+                    {
+                        double speedFrom = CommandConverter.LaunchPositionToVibratorSpeed(information.DeviceInformation.PositionFromOriginal);
+                        double speedTo = CommandConverter.LaunchPositionToVibratorSpeed(information.DeviceInformation.PositionToOriginal);
 
-                double speed = speedFrom * (1 - information.Progress) + speedTo * information.Progress * information.DeviceInformation.SpeedMultiplier;
-                speed = information.DeviceInformation.TransformSpeed(speed);
+                        speed = speedFrom * (1 - information.Progress) + speedTo * information.Progress * information.DeviceInformation.SpeedMultiplier;
+                        speed = information.DeviceInformation.TransformSpeed(speed);
+
+                        break;
+                    }
+                    case VibratorConversionMode.SpeedHalfDuration:
+                    {
+                        if (information.Progress < 0.5)
+                        {
+                            speed = CommandConverter.LaunchSpeedToVibratorSpeed(information.DeviceInformation.SpeedTransformed);
+                        }
+                        else
+                        {
+                            speed = 0.0;
+                        }
+
+                        break;
+                    }
+                    case VibratorConversionMode.SpeedFullDuration:
+                    {
+                        speed = CommandConverter.LaunchSpeedToVibratorSpeed(information.DeviceInformation.SpeedTransformed);
+                        break;
+                    }
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
 
                 try
                 {
                     await _clientLock.WaitAsync();
 
-                    ButtplugMessage response = await _client.SendDeviceMessage(device,
-                        new SingleMotorVibrateCmd(device.Index, speed));
+                    await device.SendMessageAsync(new SingleMotorVibrateCmd(device.Index, speed));
 
-                    await CheckResponse(response);
+                    //ButtplugMessage response = await device.SendMessageAsync(new SingleMotorVibrateCmd(device.Index, speed));
+
+                    //await CheckResponse(response);
                 }
                 finally
                 {
@@ -137,37 +183,49 @@ namespace ScriptPlayer.Shared
 
                 ButtplugDeviceMessage message = null;
 
-                if (device.AllowedMessages.ContainsKey(nameof(FleshlightLaunchFW12Cmd)))
+                if (device.AllowedMessages.ContainsKey(typeof(FleshlightLaunchFW12Cmd)))
                 {
                     message = new FleshlightLaunchFW12Cmd(device.Index, (uint)information.SpeedTransformed, (uint)information.PositionToTransformed);
                 }
-                else if (device.AllowedMessages.ContainsKey(nameof(KiirooCmd)))
+                else if (device.AllowedMessages.ContainsKey(typeof(KiirooCmd)))
                 {
                     message = new KiirooCmd(device.Index, CommandConverter.LaunchToKiiroo(information.PositionToOriginal, 0, 4));
                 }
                 /*else if (device.AllowedMessages.ContainsKey(nameof(VibrateCmd)))
                 {
-                    message = new VibrateCmd(device.Index, new List<VibrateCmd.VibrateSubcommand>{new VibrateCmd.VibrateSubcommand(0, LaunchToVibrator(information.PositionFromOriginal))});
+                    message = new VibrateCmd(device.Index, new List<VibrateCmd.VibrateSubcommand>{new VibrateCmd.VibrateSubcommand(0, LaunchPositionToVibratorSpeed(information.PositionFromOriginal))});
                 }*/
-                else if (device.AllowedMessages.ContainsKey(nameof(SingleMotorVibrateCmd)))
+                else if (device.AllowedMessages.ContainsKey(typeof(SingleMotorVibrateCmd)))
                 {
-                    message = new SingleMotorVibrateCmd(device.Index, information.TransformSpeed(CommandConverter.LaunchToVibrator(information.PositionFromOriginal)));
+                    switch(VibratorConversionMode)
+                    {
+                        case VibratorConversionMode.PositionToSpeed:
+                            message = new SingleMotorVibrateCmd(device.Index, information.TransformSpeed(CommandConverter.LaunchPositionToVibratorSpeed(information.PositionFromOriginal)));
+                            break;
+                        case VibratorConversionMode.SpeedHalfDuration:
+                        case VibratorConversionMode.SpeedFullDuration:
+                            message = new SingleMotorVibrateCmd(device.Index, information.TransformSpeed(CommandConverter.LaunchSpeedToVibratorSpeed(information.SpeedTransformed)));
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
                 }
-                else if (device.AllowedMessages.ContainsKey(nameof(VorzeA10CycloneCmd)))
+                else if (device.AllowedMessages.ContainsKey(typeof(VorzeA10CycloneCmd)))
                 {
                     // position is used as speed here
                     message = new VorzeA10CycloneCmd(device.Index, CommandConverter.LaunchToVorzeSpeed(information), information.PositionToOriginal > information.PositionFromOriginal);
                     Debug.WriteLine(CommandConverter.LaunchToVorzeSpeed(information));
                 }
-                else if (device.AllowedMessages.ContainsKey(nameof(LovenseCmd)))
+                else if (device.AllowedMessages.ContainsKey(typeof(LovenseCmd)))
                 {
                     //message = new LovenseCmd(device.Index, LaunchToLovense(position, speed));
                 }
 
                 if (message == null) return;
 
-                ButtplugMessage response = await _client.SendDeviceMessage(device, message);
-                await CheckResponse(response);
+                await device.SendMessageAsync(message);
+                //ButtplugMessage response = await _client.SendDeviceMessage(device, message);
+                //await CheckResponse(response);
             }
             finally
             {
@@ -199,10 +257,11 @@ namespace ScriptPlayer.Shared
         {
             if (_client == null) return;
 
-            if (!device.AllowedMessages.ContainsKey(nameof(StopDeviceCmd))) return;
+            if (!device.AllowedMessages.ContainsKey(typeof(StopDeviceCmd))) return;
 
-            ButtplugMessage response = await _client.SendDeviceMessage(device, new StopDeviceCmd(device.Index));
-            await CheckResponse(response);
+            await device.StopDeviceCmd();
+            //ButtplugMessage response = await _client.SendDeviceMessage(device, new StopDeviceCmd(device.Index));
+            //await CheckResponse(response);
         }
 
         
@@ -216,7 +275,8 @@ namespace ScriptPlayer.Shared
                 {
                     RemoveDevice(device);
                 }
-                await _client.Disconnect();
+
+                await _client.DisconnectAsync();
             }
             finally
             {
@@ -227,7 +287,7 @@ namespace ScriptPlayer.Shared
         public async Task StartScanning()
         {
             if (_client == null) return;
-            await _client.StartScanning();
+            await _client.StartScanningAsync();
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -240,12 +300,18 @@ namespace ScriptPlayer.Shared
 
         public static string GetButtplugApiVersion()
         {
-            string location = typeof(ButtplugWSClient).Assembly.Location;
+            string location = typeof(ButtplugClient).Assembly.Location;
             if (string.IsNullOrWhiteSpace(location))
                 return "?";
 
             FileVersionInfo fileVersionInfo = FileVersionInfo.GetVersionInfo(location);
             return fileVersionInfo.ProductVersion;
+        }
+
+        public static string GetDownloadUrl()
+        {
+            return "https://github.com/intiface/intiface-desktop/releases/tag/v13.0.0";
+            //return "https://github.com/buttplugio/buttplug-windows-suite/releases/tag/" + GetButtplugApiVersion();
         }
 
         public override async void ScanForDevices()
@@ -264,6 +330,13 @@ namespace ScriptPlayer.Shared
                 Debug.WriteLine("Exception in ButtplugAdapter.Dispose: " + e.Message);
             }
         }
+    }
+
+    public enum VibratorConversionMode
+    {
+        PositionToSpeed,
+        SpeedHalfDuration,
+        SpeedFullDuration
     }
 
     public class ButtplugConnectionSettings

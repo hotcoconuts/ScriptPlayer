@@ -13,7 +13,7 @@
         mc:Ignorable="d" PreviewKeyDown="MainWindow_OnPreviewKeyDown" Closing="MainWindow_OnClosing"
         DataContext="{Binding RelativeSource={RelativeSource Self}, Path=ViewModel}"
         Topmost="{Binding Settings.StayOnTop}"
-        Height="591" Width="954" Loaded="Window_Loaded" Icon="ScriptPlayerIcon.ico">
+        d:DesignHeight="591" d:DesignWidth="954" Loaded="Window_Loaded" Icon="ScriptPlayerIcon.ico" Closed="MainWindow_OnClosed">
     <Window.Style>
         <Style TargetType="Window">
             <Setter Property="Title" Value="{Binding Path=Title, StringFormat={}ScriptPlayer - {0}}"/>
@@ -31,6 +31,7 @@
         <converters1:TimeSpanToMillisecondsConverter x:Key="MillisecondsConverter"/>
         <converters:BooleanToColumnSpanConverter x:Key="ColumnSpanConverter" OnFalse="1" OnTrue="2" />
         <converters:BooleanInverter x:Key="Inverter"/>
+        <converters1:EqualsConverter x:Key="EqualsConverter"/>
         <BooleanToVisibilityConverter x:Key="VisibilityConverter"/>
 
         <!-- Used in code -->
@@ -262,6 +263,36 @@
                 </StackPanel>
             </Grid>
 
+            <!--Kodi-->
+            <Grid IsHitTestVisible="False">
+                <Grid.Style>
+                    <Style TargetType="{x:Type Grid}">
+                        <Setter Property="Visibility" Value="Hidden"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding PlaybackMode}" Value="{x:Static viewModels:PlaybackMode.Kodi}">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="Kodi" Foreground="White" FontSize="50" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"/>
+                    <TextBlock Foreground="White" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}">
+                                <Setter Property="Text" Value="Not Connected.&#x0d;&#x0a; Enable remote control via http (Settings - Services - Control)."/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding TimeSource.IsConnected}" Value="true">
+                                        <Setter Property="Text" Value="Connected"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
+            
+
             <!-- ICON AND VERSION -->
             <Grid IsHitTestVisible="False" Visibility="{Binding ShowBanner, Converter={StaticResource VisibilityConverter}}">
                 <Grid.RowDefinitions>
@@ -410,13 +441,15 @@
                             </Style>
                         </MenuItem.Style>
                     </MenuItem>
-                    <MenuItem>
-                        <MenuItem.Header>
+                    <MenuItem Header="Buttplug / Intiface">
+                        <!--<MenuItem.Header>
                             <TextBlock>
                             <Run Text="Buttplug "/>
                             <Run Text="{Binding ButtplugApiVersion}"/>
                             </TextBlock>
-                        </MenuItem.Header>
+                        </MenuItem.Header>-->
+                        <MenuItem Header="Download" Click="MnuDownloadButtplug_Click"/>
+                        <Separator/>
                         <MenuItem Header="Connect" Command="{Binding ConnectButtplugCommand}"/>
                         <MenuItem Header="Disconnect" Command="{Binding DisconnectButtplugCommand}"/>
                         <MenuItem Header="Scan for Devices" Command="{Binding StartScanningButtplugCommand}"/>
@@ -431,22 +464,30 @@
                     <MenuItem Header="VLC" IsCheckable="True" IsChecked="{Binding Path=PlaybackMode, Mode=TwoWay, Converter={StaticResource BooleanConverter}, ConverterParameter={x:Static viewModels:PlaybackMode.Vlc}}"/>
                     <MenuItem Header="Whirligig" IsCheckable="True" IsChecked="{Binding Path=PlaybackMode, Mode=TwoWay, Converter={StaticResource BooleanConverter}, ConverterParameter={x:Static viewModels:PlaybackMode.Whirligig}}"/>
                     <MenuItem Header="Zoom Player" IsCheckable="True" IsChecked="{Binding Path=PlaybackMode, Mode=TwoWay, Converter={StaticResource BooleanConverter}, ConverterParameter={x:Static viewModels:PlaybackMode.ZoomPlayer}}"/>
+                    <MenuItem Header="Kodi" IsCheckable="True" IsChecked="{Binding Path=PlaybackMode, Mode=TwoWay, Converter={StaticResource BooleanConverter}, ConverterParameter={x:Static viewModels:PlaybackMode.Kodi}}"/>
                 </MenuItem>
-                <MenuItem Header="Playback">
-                    <MenuItem Header="Loop">
-                        <MenuItem Header="Set A" Command="{Binding SetLoopACommand}"/>
-                        <MenuItem Header="Set B" Command="{Binding SetLoopBCommand}"/>
-                        <MenuItem Header="Clear" Command="{Binding ClearLoopCommand}"/>
-                    </MenuItem>
+                <MenuItem Header="Selection">
+                    <MenuItem Header="Set A" Command="{Binding SetLoopACommand}"/>
+                    <MenuItem Header="Set B" Command="{Binding SetLoopBCommand}"/>
+                    <MenuItem Header="Clear" Command="{Binding ClearLoopCommand}"/>
+                    <Separator />
+                    <MenuItem Header="Loop" IsChecked="{Binding LoopSelection}" IsCheckable="True"/>
+                </MenuItem>
+                <MenuItem Header="Generate">
+                    <MenuItem Header="Preview GIF" Click="MnuCreatePreview_OnClick"/>
+                    <!--<MenuItem Header="Generate Scenes" Click="MnuCreateScenes_OnClick"/>-->
+                    <MenuItem Header="Thumbnails" Command="{Binding GenerateThumbnailsForLoadedVideoCommand}"/>
                 </MenuItem>
                 <MenuItem Header="View">
                     <MenuItem Header="Toggle Fullscreen" Command="{Binding ToggleFullScreenCommand}"/>
                     <MenuItem Header="Stay On Top" IsCheckable="True" IsChecked="{Binding Path=Settings.StayOnTop, Mode=TwoWay}"/>
                 </MenuItem>
-                <MenuItem Header="Settings" Click="mnuSettings_Click">
+                <MenuItem Header="Settings" Command="{Binding ShowSettingsCommand}">
                 </MenuItem>
                 <MenuItem Header="Help">
                     <MenuItem Header="Documentation (Online)" Click="mnuDocs_Click"/>
+                    <MenuItem Header="Attributions" Click="mnuAttributions_Click"/>
+                    <Separator/>
                     <MenuItem Header="About / Check for new Version" Click="mnuVersion_Click"/>
                 </MenuItem>
             </Menu>
@@ -528,13 +569,51 @@
                 <controls:AwesomeTextBlock Text="{x:Static fa:FontAwesome.fa_arrows}"></controls:AwesomeTextBlock>
             </Button>
             <TextBlock MouseLeftButtonDown="TimeDisplay_OnMouseLeftButtonDown" TextAlignment="Right" DockPanel.Dock="Right" VerticalAlignment="Center" Width="95" Margin="0,0,8,0">
+                <TextBlock.ContextMenu>
+                    <ContextMenu>
+                        <ContextMenu.Resources>
+                            <Style x:Key="DisplayModeCommand" TargetType="MenuItem">
+                                <Setter Property="Command" Value="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}, Path=PlacementTarget.DataContext.SetTimeDisplayModeCommand}"/>
+                                <Setter Property="CommandParameter" Value="{Binding RelativeSource={RelativeSource Self}, Path=Tag}"></Setter>
+                                <Setter Property="IsChecked">
+                                    <Setter.Value>
+                                        <MultiBinding Converter="{StaticResource EqualsConverter}">
+                                            <Binding RelativeSource="{RelativeSource Self}" Path="Tag"/>
+                                            <Binding RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}" Path="PlacementTarget.DataContext.Settings.TimeDisplayMode"/>
+                                        </MultiBinding>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                            <Style x:Key="TimeLeftCommand" TargetType="MenuItem">
+                                <Setter Property="Command" Value="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}, Path=PlacementTarget.DataContext.SetShowTimeLeftCommand}"/>
+                                <Setter Property="CommandParameter" Value="{Binding RelativeSource={RelativeSource Self}, Path=Tag}"></Setter>
+                                <Setter Property="IsChecked">
+                                    <Setter.Value>
+                                        <MultiBinding Converter="{StaticResource EqualsConverter}">
+                                            <Binding RelativeSource="{RelativeSource Self}" Path="Tag"/>
+                                            <Binding RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}" Path="PlacementTarget.DataContext.Settings.ShowTimeLeft"/>
+                                        </MultiBinding>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ContextMenu.Resources>
+                        <MenuItem Header="Media Progress" Tag="{x:Static viewModels:TimeDisplayMode.Original}" Style="{StaticResource DisplayModeCommand}"/>
+                        <MenuItem Header="Content and Gaps" Tag="{x:Static viewModels:TimeDisplayMode.ContentAndGaps}" Style="{StaticResource DisplayModeCommand}"/>
+                        <MenuItem Header="Content Only" Tag="{x:Static viewModels:TimeDisplayMode.ContentOnly}" Style="{StaticResource DisplayModeCommand}"/>
+                        <Separator/>
+                        <MenuItem Header="Time elapsed" Tag="{x:Static viewModels:StaticBoolean.False}" Style="{StaticResource TimeLeftCommand}"/>
+                        <MenuItem Header="Time remaining" Tag="{x:Static viewModels:StaticBoolean.True}" Style="{StaticResource TimeLeftCommand}"/>
+                        <Separator/>
+                        <MenuItem Header="Limit to selection" IsCheckable="True" IsChecked="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}, Path=PlacementTarget.DataContext.Settings.LimitDisplayedTimeToSelection}"/>
+                    </ContextMenu>
+                </TextBlock.ContextMenu>
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
                         <Setter Property="Text">
                             <Setter.Value>
                                 <MultiBinding StringFormat="{}{0:h\:mm\:ss} / {1:h\:mm\:ss}">
-                                    <Binding Path="TimeSource.Progress"/>
-                                    <Binding Path="TimeSource.Duration"/>
+                                    <Binding Path="DisplayedProgress"/>
+                                    <Binding Path="DisplayedDuration"/>
                                 </MultiBinding>
                             </Setter.Value>
                         </Setter>
@@ -543,8 +622,8 @@
                                 <Setter Property="Text">
                                     <Setter.Value>
                                         <MultiBinding Converter="{StaticResource TimeLeftConverter}">
-                                            <Binding Path="TimeSource.Progress"/>
-                                            <Binding Path="TimeSource.Duration"/>
+                                            <Binding Path="DisplayedProgress"/>
+                                            <Binding Path="DisplayedDuration"/>
                                         </MultiBinding>
                                     </Setter.Value>
                                 </Setter>
@@ -554,9 +633,29 @@
                 </TextBlock.Style>
             </TextBlock>
             <Slider VerticalAlignment="Center" Margin="16,0" Width="50" Value="{Binding Volume, Mode=TwoWay}" Minimum="0" Maximum="100" DockPanel.Dock="Right" Style="{DynamicResource VolumeSliderStyle}"></Slider>
-            <Button Command="{Binding Playlist.PlayNextEntryCommand}" CommandParameter="{Binding LoadedFiles}" ToolTip="Play next video in playlist" Content=":" DockPanel.Dock="Right" />
-            <Button Command="{Binding Playlist.PlayPreviousEntryCommand}" CommandParameter="{Binding LoadedFiles}" ToolTip="Play previous video in playlist" Content="9" DockPanel.Dock="Right"/>
-            <shared:SeekBar HighlightRange="{Binding SelectedRange}" SnapsToDevicePixels="True" Margin="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Name="SeekBar" Thumbnails="{Binding Thumbnails}" Progress="{Binding Path=TimeSource.Progress}" Duration="{Binding Path=TimeSource.Duration}" Seek="SeekBar_OnSeek">
+            <Button Command="{Binding Playlist.PlayNextEntryCommand}" Content=":" DockPanel.Dock="Right"
+                    ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000">
+                <Button.ToolTip>
+                    <ToolTip Padding="0" Placement="Top" Opened="ToolTipNext_OnOpened" Closed="ToolTip_OnClosed" BorderThickness="0">
+                        <StackPanel Width="300">
+                            <shared:GifPlayer Background="Black" AutoPlay="True" Name="playerNext" Stretch="Uniform"/>
+                            <TextBlock Margin="2" Background="White" Foreground="Black" Name="titleNext" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </ToolTip>
+                </Button.ToolTip>
+            </Button>
+            <Button Command="{Binding Playlist.PlayPreviousEntryCommand}" Content="9" DockPanel.Dock="Right"
+                    ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000">
+                <Button.ToolTip>
+                    <ToolTip Padding="0" Placement="Top" Opened="ToolTipPrevious_OnOpened" Closed="ToolTip_OnClosed" BorderThickness="0">
+                        <StackPanel Width="300">
+                            <shared:GifPlayer Background="Black" AutoPlay="True" Name="playerPrevious" Stretch="Uniform"/>
+                            <TextBlock Margin="2" Background="White" Foreground="Black" Name="titlePrevious" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </ToolTip>
+                </Button.ToolTip>
+            </Button>
+            <shared:SeekBar HighlightRange="{Binding DisplayedRange}" SnapsToDevicePixels="True" Margin="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Name="SeekBar" Thumbnails="{Binding Thumbnails}" Progress="{Binding Path=TimeSource.Progress}" Duration="{Binding Path=TimeSource.Duration}" Seek="SeekBar_OnSeek">
                 <shared:SeekBar.OverlayOpacity>
                     <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
                         <GradientStop Offset="0" Color="#20000000"/>
@@ -598,6 +697,10 @@
                                 <TextBlock Margin="4,0" Text="{Binding Settings.MinPosition}" DockPanel.Dock="Left"/>
                                 <TextBlock Margin="4,0" Text="{Binding Settings.MaxPosition}" DockPanel.Dock="Right"/>
                             </DockPanel>
+
+                            <TextBlock Margin="0" HorizontalAlignment="Center" Text="Range Extender"/>
+                            <Slider Margin="0,4" Minimum="0" Maximum="99" Value="{Binding Settings.RangeExtender}"/>
+                            <TextBlock TextAlignment="Center" Margin="0" Text="{Binding Path=Settings.RangeExtender}"/>
                             <Grid>
                                 <Grid.Resources>
                                     <Style TargetType="{x:Type RadioButton}" BasedOn="{StaticResource {x:Static ToolBar.RadioButtonStyleKey}}">

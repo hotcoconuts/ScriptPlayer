@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -11,6 +12,7 @@ using ScriptPlayer.Dialogs;
 using ScriptPlayer.Shared;
 using ScriptPlayer.ViewModels;
 using Microsoft.Win32;
+using Point = System.Windows.Point;
 
 namespace ScriptPlayer
 {
@@ -35,11 +37,20 @@ namespace ScriptPlayer
 
         public MainWindow()
         {
-            Closed += OnClosed;
             ViewModel = new MainViewModel();
+            ViewModel.LoadPlayerState();
+            RestoreWindowState(ViewModel.InitialPlayerState);   
         }
 
-        private void OnClosed(object sender, EventArgs eventArgs)
+        private void MainWindow_OnClosing(object sender, CancelEventArgs e)
+        {
+            if(!_fullscreen)
+                SaveCurrentWindowRect();
+
+            ViewModel.Dispose();
+        }
+
+        private void MainWindow_OnClosed(object sender, EventArgs e)
         {
             ViewModel.Unload();
         }
@@ -54,6 +65,14 @@ namespace ScriptPlayer
             ViewModel.RequestWhirligigConnectionSettings += ViewModelOnRequestWhirligigConnectionSettings;
             ViewModel.RequestMpcConnectionSettings += ViewModelOnRequestMpcConnectionSettings;
             ViewModel.RequestSamsungVrConnectionSettings += ViewModelOnRequestSamsungVrConnectionSettings;
+            ViewModel.RequestKodiConnectionSettings += ViewModelOnRequestKodiConnectionSettings;
+            ViewModel.RequestGetWindowState += ViewModelOnRequestGetWindowState;
+            ViewModel.RequestThumbnailGeneratorSettings += ViewModelOnRequestThumbnailGeneratorSettings;
+            ViewModel.RequestGenerateThumbnails += ViewModelOnRequestGenerateThumbnails;
+
+            ViewModel.RequestActivate += ViewModelOnRequestActivate;
+            ViewModel.RequestShowSettings += ViewModelOnRequestShowSettings;
+            ViewModel.RequestSetWindowState += ViewModelOnRequestSetWindowState;
             ViewModel.RequestMessageBox += ViewModelOnRequestMessageBox;
             ViewModel.RequestFile += ViewModelOnRequestFile;
             ViewModel.RequestFolder += ViewModelOnRequestFolder;
@@ -61,10 +80,77 @@ namespace ScriptPlayer
             ViewModel.RequestShowSkipNextButton += ViewModelOnRequestShowSkipNextButton;
             ViewModel.RequestHideSkipButton += ViewModelOnRequestHideSkipButton;
             ViewModel.RequestHideNotification += ViewModelOnRequestHideNotification;
-            ViewModel.Beat += ViewModelOnBeat;
-            ViewModel.IntermediateBeat += ViewModelOnIntermediateBeat;
+
             ViewModel.VideoPlayer = VideoPlayer;
             ViewModel.Load();
+
+            if (ViewModel.InitialPlayerState != null)
+            {
+                WindowState = ViewModel.InitialPlayerState.IsMaximized ? WindowState.Maximized : WindowState.Normal;
+                SetFullscreen(ViewModel.InitialPlayerState.IsFullscreen, false);
+            }
+        }
+
+        private void ViewModelOnRequestActivate(object sender, EventArgs eventArgs)
+        {
+            Activate();
+        }
+
+        private void ViewModelOnRequestShowSettings(object sender, string settingsId)
+        {
+            SettingsDialog settings = new SettingsDialog(ViewModel.Settings, settingsId) { Owner = this };
+            if (settings.ShowDialog() != true) return;
+
+            ViewModel.ApplySettings(settings.Settings);
+        }
+
+        private void ViewModelOnRequestGenerateThumbnails(object sender, ThumbnailGeneratorSettings settings)
+        {
+            var createDialog = new ThumbnailGeneratorDialog(ViewModel, settings) {Owner = this};
+            if (createDialog.ShowDialog() != true)
+                return;
+
+            ViewModel.RecheckForAdditionalFiles();
+        }
+
+        private void ViewModelOnRequestThumbnailGeneratorSettings(object sender, RequestEventArgs<ThumbnailGeneratorSettings> eventArgs)
+        {
+            var settingsDialog = new ThumbnailGeneratorSettingsDialog(ViewModel, eventArgs.Value) {Owner = this};
+            if (settingsDialog.ShowDialog() != true)
+                return;
+
+            eventArgs.Value = settingsDialog.Result;
+            eventArgs.Handled = true;
+        }
+
+        private void ViewModelOnRequestSetWindowState(object sender, WindowStateModel windowStateModel)
+        {
+            RestoreWindowState(windowStateModel);
+        }
+
+        private void RestoreWindowState(WindowStateModel windowStateModel)
+        {
+            if (windowStateModel == null)
+                return;
+
+            _windowPosition = windowStateModel.GetPosition();
+            _windowState = windowStateModel.IsMaximized ? WindowState.Maximized : WindowState.Normal;
+            
+            RestoreWindowRect(IsInitialized);
+
+            if (IsInitialized)
+                SetFullscreen(windowStateModel.IsFullscreen, false);
+        }
+
+        private void ViewModelOnRequestGetWindowState(object sender, RequestEventArgs<WindowStateModel> e)
+        {
+            e.Value = new WindowStateModel
+            {
+                IsMaximized = _windowState == WindowState.Maximized,
+                IsFullscreen = _fullscreen,
+                WindowPosition = _windowPosition
+            };
+            e.Handled = true;
         }
 
         private void ViewModelOnRequestFolder(object sender, RequestEventArgs<string> e)
@@ -79,25 +165,6 @@ namespace ScriptPlayer
 
             e.Handled = true;
             e.Value = x.SelectedPath;
-        }
-
-        private void ViewModelOnIntermediateBeat(object sender, double d)
-        {
-
-        }
-
-
-        private void ViewModelOnBeat(object sender, EventArgs eventArgs)
-        {
-            return;
-
-            if (!CheckAccess())
-            {
-                Dispatcher.BeginInvoke(new Action(() => { ViewModelOnBeat(sender, eventArgs); }));
-                return;
-            }
-
-            FlashOverlay.Flash();
         }
 
         private void ViewModelOnRequestHideNotification(object sender, string designation)
@@ -181,14 +248,26 @@ namespace ScriptPlayer
             };
         }
 
+        private void ViewModelOnRequestKodiConnectionSettings(object sender, RequestEventArgs<KodiConnectionSettings> args)
+        {
+            var settings = args.Value;
+            KodiConnectionSettingsDialog dialog = new KodiConnectionSettingsDialog(settings.Ip, settings.HttpPort, settings.TcpPort, settings.User, settings.Password) { Owner = this };
+            if (dialog.ShowDialog() != true) return;
+
+            args.Handled = true;
+            args.Value = new KodiConnectionSettings
+            {
+                Ip = dialog.Ip,
+                HttpPort = dialog.HttpPort,
+                TcpPort = dialog.TcpPort,
+                User = dialog.User,
+                Password = dialog.Password
+            };
+        }
+
         private void ViewModelOnRequestToggleFullscreen(object sender, EventArgs eventArgs)
         {
             ToggleFullscreen();
-        }
-
-        private void MainWindow_OnClosing(object sender, CancelEventArgs e)
-        {
-            ViewModel.Dispose();
         }
 
         private void ViewModelOnRequestOverlay(object sender, string text, TimeSpan timeSpan, string designation)
@@ -258,27 +337,31 @@ namespace ScriptPlayer
             SetFullscreen(!_fullscreen);
         }
 
-        private void SetFullscreen(bool isFullscreen)
+        private void SetFullscreen(bool isFullscreen, bool updateRestorePosition = true)
         {
-            if (_fullscreen == isFullscreen) return;
+            if (_fullscreen == isFullscreen)
+                return;
+
+            bool currentlyFullScreen = _fullscreen;
 
             _fullscreen = isFullscreen;
 
             if (_fullscreen)
             {
+                if(updateRestorePosition && !currentlyFullScreen)
+                    SaveCurrentWindowRect();
+
+                var screenBounds = FindScreenWithMostOverlap();
+
                 WindowStyle = WindowStyle.None;
                 ResizeMode = ResizeMode.NoResize;
-
-                SaveCurrentWindowRect();
-
-                var screenBounds = System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(this).Handle).Bounds;
+                WindowState = WindowState.Normal;
 
                 Width = screenBounds.Width;
                 Height = screenBounds.Height;
                 Left = screenBounds.Left;
                 Top = screenBounds.Top;
-                WindowState = WindowState.Normal;
-
+                
                 HideOnHover.SetIsActive(MnuMain, true);
                 HideOnHover.SetIsActive(PlayerControls, true);
 
@@ -290,7 +373,7 @@ namespace ScriptPlayer
                 WindowStyle = WindowStyle.SingleBorderWindow;
                 ResizeMode = ResizeMode.CanResize;
 
-                RestoreWindowRect();
+                RestoreWindowRect(true);
 
                 HideOnHover.SetIsActive(MnuMain, false);
                 HideOnHover.SetIsActive(PlayerControls, false);
@@ -298,21 +381,50 @@ namespace ScriptPlayer
                 Grid.SetRow(GridVideo, 1);
                 Grid.SetRowSpan(GridVideo, 1);
             }
+
+            _fullscreen = isFullscreen;
         }
 
-        private void RestoreWindowRect()
+        public Rectangle GetWindowRectangle()
+        {
+            if (WindowState == WindowState.Maximized)
+            {
+                var handle = new WindowInteropHelper(this).Handle;
+                var screen = System.Windows.Forms.Screen.FromHandle(handle);
+                return screen.WorkingArea;
+            }
+
+            return new Rectangle((int)Left, (int)Top,(int)ActualWidth, (int)ActualHeight);
+        }
+
+        private Rect FindScreenWithMostOverlap()
+        {
+            Rectangle windowBounds = GetWindowRectangle();
+
+            Rectangle screenBounds = System.Windows.Forms.Screen.FromRectangle(windowBounds).Bounds;
+
+            return new Rect(screenBounds.X, screenBounds.Y, screenBounds.Width, screenBounds.Height);
+        }
+
+        private void RestoreWindowRect(bool includeWindowState)
         {
             Left = _windowPosition.Left;
             Top = _windowPosition.Top;
             Width = _windowPosition.Width;
             Height = _windowPosition.Height;
-            WindowState = _windowState;
+
+            if(includeWindowState)
+                WindowState = _windowState;
         }
 
         private void SaveCurrentWindowRect()
         {
-            _windowPosition = new Rect(Left, Top, Width, Height);
             _windowState = WindowState;
+
+            if (_windowState != WindowState.Normal)
+                _windowPosition = new Rect(RestoreBounds.Left, RestoreBounds.Top, RestoreBounds.Width, RestoreBounds.Height);
+            else
+                _windowPosition = new Rect(Left, Top, Width, Height);
         }
 
         private async void VideoPlayer_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -386,21 +498,22 @@ namespace ScriptPlayer
 
         private void MainWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)
         {
-            bool handled = true;
-
-            Key[] modifiers = new[] {Key.LeftAlt, Key.LeftCtrl, Key.LeftShift, Key.RightAlt, Key.RightCtrl, Key.RightShift};
+            Key[] modifiers = {Key.LeftAlt, Key.LeftCtrl, Key.LeftShift, Key.RightAlt, Key.RightCtrl, Key.RightShift};
 
             if (modifiers.Contains(e.Key))
                 return;
 
             ModifierKeys activeMods = GlobalCommandManager.GetActiveModifierKeys();
 
-            handled = GlobalCommandManager.ProcessInput(e.Key, activeMods);
+            bool handled = GlobalCommandManager.ProcessInput(e.Key, activeMods);
+
             if (handled)
             {
                 e.Handled = true;
                 return;
             }
+
+            handled = true;
 
             switch (e.Key)
             {
@@ -441,17 +554,16 @@ namespace ScriptPlayer
                     }
                 case Key.PageUp:
                     {
-                        ViewModel.Playlist.PlayPreviousEntry(ViewModel.LoadedFiles);
+                        ViewModel.Playlist.PlayPreviousEntry();
                         break;
                     }
                 case Key.PageDown:
                     {
-                        ViewModel.Playlist.PlayNextEntry(ViewModel.LoadedFiles);
+                        ViewModel.Playlist.PlayNextEntry();
                         break;
                     }
                 case Key.NumPad0:
                     {
-
                         break;
                     }
                 case Key.NumPad1:
@@ -561,15 +673,6 @@ namespace ScriptPlayer
             }
         }
 
-
-        private void mnuSettings_Click(object sender, RoutedEventArgs e)
-        {
-            SettingsDialog settings = new SettingsDialog(ViewModel.Settings) { Owner = this };
-            if (settings.ShowDialog() != true) return;
-
-            ViewModel.ApplySettings(settings.Settings);
-        }
-
         private void mnuVersion_Click(object sender, RoutedEventArgs e)
         {
             VersionDialog dialog = new VersionDialog(ViewModel.Version) { Owner = this };
@@ -580,15 +683,6 @@ namespace ScriptPlayer
         {
             Process.Start("https://github.com/FredTungsten/ScriptPlayer/wiki");
         }
-
-        /*
-        private void mnuDownloadScript_Click(object sender, RoutedEventArgs e)
-        {
-            //Process.Start("https://github.com/FredTungsten/Scripts");
-            ScriptDownloadDialog dialog = new ScriptDownloadDialog(){Owner = this};
-            dialog.ShowDialog();
-        }
-        */
 
         private void TimeDisplay_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -606,6 +700,104 @@ namespace ScriptPlayer
         private void btnReloadScript_Click(object sender, RoutedEventArgs e)
         {
             ViewModel.ReloadScript();
+        }
+
+        private void MnuCreateScenes_OnClick(object sender, RoutedEventArgs e)
+        {
+            if (!ViewModel.CheckFfmpeg())
+                return;
+
+            new SceneSelectorDialog(ViewModel, ViewModel.LoadedVideo).ShowDialog();
+        }
+
+        private void MnuCreatePreview_OnClick(object sender, RoutedEventArgs e)
+        {
+            if (!ViewModel.CheckFfmpeg())
+                return;
+
+            var settings = new PreviewGeneratorSettings
+            {
+                Video = ViewModel.LoadedVideo,
+            };
+
+            settings.Destination = settings.SuggestDestination();
+
+            if (ViewModel.DisplayedRange != null)
+            {
+                settings.Start = ViewModel.DisplayedRange.Start;
+                settings.Duration = ViewModel.DisplayedRange.Duration;
+            }
+            else
+            {
+                settings.Start = ViewModel.TimeSource.Progress;
+                settings.Duration = TimeSpan.FromSeconds(5);
+            }
+
+            PreviewGeneratorSettingsDialog settingsDialog = new PreviewGeneratorSettingsDialog(ViewModel, settings);
+            settingsDialog.Owner = this;
+            if (settingsDialog.ShowDialog() != true)
+                return;
+
+            settings = settingsDialog.Result;
+
+            var dialog = new PreviewGeneratorDialog(ViewModel, settings) {Owner = this};
+            dialog.ShowDialog();
+
+            ViewModel.RecheckForAdditionalFiles();
+        }
+
+        private void ToolTipNext_OnOpened(object sender, RoutedEventArgs e)
+        {
+            var entry = ViewModel.Playlist.NextEntry;
+            if (entry == null)
+            {
+                playerNext.Close();
+                titleNext.Text = "Unknown";
+                return;
+            }
+
+            string gifFile = ViewModel.GetRelatedFile(entry.Fullname, new[] { "gif" });
+            if (!string.IsNullOrEmpty(gifFile))
+            {
+                playerNext.Load(gifFile);
+            }
+
+            titleNext.Text = entry.Shortname + " [" + (entry.Duration?.ToString("hh\\:mm\\:ss") ?? "?") + "]";
+        }
+
+        private void ToolTipPrevious_OnOpened(object sender, RoutedEventArgs e)
+        {
+            var entry = ViewModel.Playlist.PreviousEntry;
+            if (entry == null)
+            {
+                playerPrevious.Close();
+                titlePrevious.Text = "Unknown";
+                return;
+            }
+
+            string gifFile = ViewModel.GetRelatedFile(entry.Fullname, new[] { "gif" });
+            if (!string.IsNullOrEmpty(gifFile))
+            {
+                playerPrevious.Load(gifFile);
+            }
+
+            titlePrevious.Text = entry.Shortname + " [" + (entry.Duration?.ToString("hh\\:mm\\:ss") ?? "?") + "]";
+        }
+
+        private void ToolTip_OnClosed(object sender, RoutedEventArgs e)
+        {
+            playerNext.Close();
+            playerPrevious.Close();
+        }
+
+        private void MnuDownloadButtplug_Click(object sender, RoutedEventArgs e)
+        {
+            Process.Start(ButtplugAdapter.GetDownloadUrl());
+        }
+
+        private void mnuAttributions_Click(object sender, RoutedEventArgs e)
+        {
+            new AttributionDialog(){Owner = this}.Show();
         }
     }
 }

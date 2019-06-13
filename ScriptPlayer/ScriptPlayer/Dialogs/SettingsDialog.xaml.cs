@@ -98,7 +98,7 @@ namespace ScriptPlayer.Dialogs
 
         private static string _lastSelected;
 
-        public SettingsDialog(SettingsViewModel initialSettings)
+        public SettingsDialog(SettingsViewModel initialSettings, string selectedPage = null)
         {
             Settings = initialSettings.Duplicate();
             CreateInputMappings(GlobalCommandManager.CommandMappings);
@@ -106,7 +106,7 @@ namespace ScriptPlayer.Dialogs
             InitializeComponent();
 
             Pages = BuildPages(PageSelector);
-            SelectedPage = FindPage(_lastSelected) ?? Pages.FirstOrDefault();
+            SelectedPage = FindPage(selectedPage) ?? FindPage(_lastSelected) ?? Pages.FirstOrDefault();
         }
 
         private void CreateInputMappings(List<InputMapping> inputMappings)
@@ -225,14 +225,21 @@ namespace ScriptPlayer.Dialogs
             return result;
         }
 
+
         private void TxtPasswordVlcPassword_OnPasswordChanged(object sender, RoutedEventArgs e)
         {
             Settings.VlcPassword = ((PasswordBox) sender).Password;
         }
 
+        private void TxtPasswordKodiPassword_OnPasswordChanged(object sender, RoutedEventArgs e)
+        {
+            Settings.KodiPassword = ((PasswordBox)sender).Password;
+        }
+
         private void SettingsDialog_OnLoaded(object sender, RoutedEventArgs e)
         {
             txtPasswordVlcPassword.Password = Settings.VlcPassword;
+            txtPasswordKodiPassword.Password = Settings.KodiPassword;
         }
 
         private void BtnOk_OnClick(object sender, RoutedEventArgs e)
@@ -337,6 +344,32 @@ namespace ScriptPlayer.Dialogs
             Settings = new SettingsViewModel();
         }
 
+        private void BtnKodiDefault_Click(object sender, RoutedEventArgs e)
+        {
+            string tag = (string)((Button)sender).Tag;
+            switch (tag)
+            {
+                case "IpDefault":
+                    Settings.KodiIp = KodiConnectionSettings.DefaultIp;
+                    break;
+                case "HttpPortDefault":
+                    Settings.KodiHttpPort = KodiConnectionSettings.DefaultHttpPort;
+                    break;
+                case "TcpPortDefault":
+                    Settings.KodiTcpPort = KodiConnectionSettings.DefaultTcpPort;
+                    break;
+                case "UserDefault":
+                    Settings.KodiUser = KodiConnectionSettings.DefaultUser;
+                    break;
+                case "PasswordDefault":
+                    Settings.KodiPassword = KodiConnectionSettings.DefaultPassword;
+                    txtPasswordKodiPassword.Password = KodiConnectionSettings.DefaultPassword;
+                    break;
+                default:
+                    break;
+            }
+        }
+
         private void BtnEditShortCut_Click(object sender, RoutedEventArgs e)
         {
             InputMappingViewModel inputMapping = ((FrameworkElement) sender).DataContext as InputMappingViewModel;
@@ -383,6 +416,25 @@ namespace ScriptPlayer.Dialogs
                 return;
 
             inputMapping.Shortcut = dialog.Shortcut;
+        }
+
+        private void BtnFfmpeg_Click(object sender, RoutedEventArgs e)
+        {
+            Process.Start("https://www.ffmpeg.org/download.html");
+        }
+
+        private void BtnBrowseForFfmpeg_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog dialog = new OpenFileDialog
+            {
+                FileName = "ffmpeg.exe",
+                Filter = "ffmpeg.exe|ffmpeg.exe"
+            };
+
+            if (dialog.ShowDialog(this) != true)
+                return;
+
+            Settings.FfmpegPath = dialog.FileName;
         }
     }
 

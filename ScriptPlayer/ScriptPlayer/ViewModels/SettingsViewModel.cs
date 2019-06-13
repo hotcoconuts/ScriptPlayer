@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Xml.Serialization;
 using JetBrains.Annotations;
+using ScriptPlayer.Shared;
 using ScriptPlayer.Shared.Scripts;
 
 namespace ScriptPlayer.ViewModels
@@ -64,7 +65,7 @@ namespace ScriptPlayer.ViewModels
 
         private TimeSpan _fillGapIntervall = TimeSpan.FromMilliseconds(500);
         private TimeSpan _fillGapGap = TimeSpan.FromSeconds(2);
-        private TimeSpan _minGapDuration = TimeSpan.FromSeconds(10);
+        private TimeSpan _minGapDuration = TimeSpan.FromSeconds(10); //This is for fillers, not the same as MainViewModel._gapDuration!
         private bool _invertPosition;
         private bool _randomChapters;
         private bool _softSeekFiles = true;
@@ -77,6 +78,84 @@ namespace ScriptPlayer.ViewModels
         private string _mpcHcEndpoint;
         private int _samsungVrUdpPort;
         private string _zoomPlayerEndpoint;
+
+        // kodi settings
+        private string _kodiIp;
+        private int _kodiTcpPort;
+        private int _kodiHttpPort;
+        private string _kodiUser;
+        private string _kodiPassword;
+
+        public VibratorConversionMode VibratorConversionMode
+        {
+            get => _vibratorConversionMode;
+            set
+            {
+                if (value == _vibratorConversionMode) return;
+                _vibratorConversionMode = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public string KodiIp
+        {
+            get => _kodiIp;
+            set
+            {
+                if (value == _kodiIp) return;
+                _kodiIp = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public int KodiTcpPort
+        {
+            get => _kodiTcpPort;
+            set
+            {
+                if (value == _kodiTcpPort) return;
+                _kodiTcpPort = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public int KodiHttpPort
+        {
+            get => _kodiHttpPort;
+            set
+            {
+                if (value == _kodiHttpPort) return;
+                _kodiHttpPort = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public string KodiUser
+        {
+            get => _kodiUser;
+            set
+            {
+                if (value == _kodiUser) return;
+                _kodiUser = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public string KodiPassword
+        {
+            get => _kodiPassword;
+            set
+            {
+                if (value == _kodiPassword) return;
+                _kodiPassword = value;
+                OnPropertyChanged();
+            }
+        }
+        // end kodi settings
+
+
+
+
         private bool _stayOnTop;
         private bool _repeatSingleFile;
         private bool _rememberVolume;
@@ -84,6 +163,12 @@ namespace ScriptPlayer.ViewModels
         private TimeSpan _patternSpeed = TimeSpan.FromMilliseconds(300);
         private ChapterMode _chapterMode = ChapterMode.RandomChapter;
         private TimeSpan _chapterTargetDuration = TimeSpan.FromSeconds(60);
+        private bool _rememberWindowPosition;
+        private int _rangeExtender;
+        private string _ffmpegPath;
+        private TimeDisplayMode _timeDisplayMode;
+        private VibratorConversionMode _vibratorConversionMode = VibratorConversionMode.PositionToSpeed;
+        private bool _limitDisplayedTimeToSelection = true;
 
         public SettingsViewModel()
         {
@@ -93,6 +178,12 @@ namespace ScriptPlayer.ViewModels
             MpcHcEndpoint = null;
             SamsungVrUdpPort = 0;
             ZoomPlayerEndpoint = null;
+            KodiUser = null;
+            KodiPassword = null;
+            KodiIp = null;
+            KodiTcpPort = 0;
+            KodiHttpPort = 0;
+            TimeDisplayMode = TimeDisplayMode.ContentOnly;
         }
 
         public SettingsViewModel Duplicate()
@@ -272,6 +363,17 @@ namespace ScriptPlayer.ViewModels
             }
         }
 
+        public bool RememberWindowPosition
+        {
+            get => _rememberWindowPosition;
+            set
+            {
+                if (value == _rememberWindowPosition) return;
+                _rememberWindowPosition = value;
+                OnPropertyChanged();
+            }
+        }
+
         public bool ClickToPlayPause
         {
             get => _clickToPlayPause;
@@ -393,6 +495,17 @@ namespace ScriptPlayer.ViewModels
             }
         }
 
+        public bool LimitDisplayedTimeToSelection
+        {
+            get => _limitDisplayedTimeToSelection;
+            set
+            {
+                if (value == _limitDisplayedTimeToSelection) return;
+                _limitDisplayedTimeToSelection = value;
+                OnPropertyChanged();
+            }
+        }
+
         public double FilterRange
         {
             get => _filterRange;
@@ -422,6 +535,17 @@ namespace ScriptPlayer.ViewModels
             {
                 if (value == _logMarkers) return;
                 _logMarkers = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public int RangeExtender
+        {
+            get => _rangeExtender;
+            set
+            {
+                if (value == _rangeExtender) return;
+                _rangeExtender = value;
                 OnPropertyChanged();
             }
         }
@@ -879,7 +1003,29 @@ namespace ScriptPlayer.ViewModels
                 OnPropertyChanged();
             }
         }
-        
+
+        public string FfmpegPath
+        {
+            get => _ffmpegPath;
+            set
+            {
+                if (value == _ffmpegPath) return;
+                _ffmpegPath = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public TimeDisplayMode TimeDisplayMode
+        {
+            get => _timeDisplayMode;
+            set
+            {
+                if (value == _timeDisplayMode) return;
+                _timeDisplayMode = value;
+                OnPropertyChanged();
+            }
+        }
+
         public event PropertyChangedEventHandler PropertyChanged;
 
         [NotifyPropertyChangedInvocator]
@@ -892,6 +1038,9 @@ namespace ScriptPlayer.ViewModels
         {
             try
             {
+                if (!File.Exists(filename))
+                    return null;
+
                 using (FileStream stream = new FileStream(filename, FileMode.Open, FileAccess.Read))
                 {
                     XmlSerializer serializer = new XmlSerializer(typeof(SettingsViewModel));

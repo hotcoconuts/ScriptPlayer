@@ -71,7 +71,7 @@
 
             <GridSplitter HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Grid.Row="0" Grid.Column="1"/>
 
-            <controls:PageSelector DesignModeContentIdentifier="Chapter Settings" x:Name="PageSelector" Grid.Column="2" Grid.Row="0" Margin="0,42,10,10" ActiveContentIdentifier="{Binding SelectedPage.SettingsId}">
+            <controls:PageSelector DesignModeContentIdentifier="Displayed Time" x:Name="PageSelector" Grid.Column="2" Grid.Row="0" Margin="0,42,10,10" ActiveContentIdentifier="{Binding SelectedPage.SettingsId}">
                 <controls:PageSelector.Template>
                     <ControlTemplate TargetType="{x:Type controls:PageSelector}">
                         <ScrollViewer>
@@ -80,18 +80,59 @@
                     </ControlTemplate>
                 </controls:PageSelector.Template>
                 <controls:PageSelector.Elements>
+                    <Grid controls:PageSelector.ContentIdentifier="Devices">
+                        <controls:PageSelector.Header>
+                            <controls:AwesomeTextBlock Text="{x:Static fa:FontAwesome.fa_heartbeat}"/>
+                        </controls:PageSelector.Header>
+                        <StackPanel>
+                            <TextBlock Text="Vibration Conversion Mode:"/>
+                            <RadioButton Margin="4" IsChecked="{Binding Settings.VibratorConversionMode, Converter={StaticResource BooleanConverter}, 
+                                ConverterParameter={x:Static shared:VibratorConversionMode.PositionToSpeed}}" Content="Convert position to speed"/>
+                            <RadioButton Margin="4" IsChecked="{Binding Settings.VibratorConversionMode, Converter={StaticResource BooleanConverter}, 
+                                ConverterParameter={x:Static shared:VibratorConversionMode.SpeedFullDuration}}" Content="Use speed"/>
+                            <RadioButton Margin="4" IsChecked="{Binding Settings.VibratorConversionMode, Converter={StaticResource BooleanConverter}, 
+                                ConverterParameter={x:Static shared:VibratorConversionMode.SpeedHalfDuration}}" Content="Use speed but stop after half the duration"/>
+                        </StackPanel>
+                    </Grid>
+                    <Grid controls:PageSelector.ContentIdentifier="FFmpeg">
+                        <controls:PageSelector.Header>
+                            <controls:AwesomeTextBlock Text="{x:Static fa:FontAwesome.fa_file_video_o}"/>
+                        </controls:PageSelector.Header>
+                        <StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="FFmpeg" FontWeight="Bold" Margin="0,10,0,0"/>
+                                <DockPanel>
+                                    <TextBlock Width="60" HorizontalAlignment="Left" Margin="20,4,4,4" TextWrapping="Wrap" Text="Path" VerticalAlignment="Center"/>
+                                    <Button DockPanel.Dock="Right"  Content="..." HorizontalAlignment="Left" Margin="4" VerticalAlignment="Top" Width="21" Height="21" Click="BtnBrowseForFfmpeg_Click"/>
+                                    <TextBox Text="{Binding Settings.FfmpegPath}" Height="23" Margin="0,4,4,4" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <TextBlock HorizontalAlignment="Stretch" TextWrapping="Wrap">
+                                    <Run>FFmpeg can be used to generate Thumbnails and Preview GIFs from within ScriptPlayer. To use FFmpeg, download it from </Run>
+                                    <Hyperlink Click="BtnFfmpeg_Click" ToolTip="https://www.ffmpeg.org/download.html">the official homepage</Hyperlink>
+                                    <Run>, install it on your computer and set the path to the </Run>
+                                    <Bold>ffmpeg.exe</Bold>
+                                    <Run> contained in the build.</Run>
+                                </TextBlock>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
                     <Grid controls:PageSelector.ContentIdentifier="Chapter Settings">
                         <controls:PageSelector.Header>
                             <controls:AwesomeTextBlock Text="{x:Static fa:FontAwesome.fa_bookmark}"/>
                         </controls:PageSelector.Header>
                         <StackPanel>
-                            <TextBlock Text="Random Chapter Mode:"/>
+                            <TextBlock Text="Chapter Mode:"/>
+                            <CheckBox Margin="4" IsChecked="{Binding Settings.RandomChapters}" Content="Enabled"/>
                             <RadioButton Margin="4" IsChecked="{Binding Settings.ChapterMode, Converter={StaticResource BooleanConverter}, 
                                 ConverterParameter={x:Static viewModels:ChapterMode.FastestChapter}}" Content="Fastest Chapter"/>
                             <RadioButton Margin="4" IsChecked="{Binding Settings.ChapterMode, Converter={StaticResource BooleanConverter}, 
                                 ConverterParameter={x:Static viewModels:ChapterMode.RandomChapter}}" Content="Random Chapter"/>
                             <RadioButton Margin="4" IsChecked="{Binding Settings.ChapterMode, Converter={StaticResource BooleanConverter}, 
+                                ConverterParameter={x:Static viewModels:ChapterMode.RandomChapterLimitedDuration}}" Content="Random Chapter (limited)"/>
+                            <RadioButton Margin="4" IsChecked="{Binding Settings.ChapterMode, Converter={StaticResource BooleanConverter}, 
                                 ConverterParameter={x:Static viewModels:ChapterMode.FastestTimeSpan}}" Content="Fastest Section"/>
+                            <RadioButton Margin="4" IsChecked="{Binding Settings.ChapterMode, Converter={StaticResource BooleanConverter}, 
+                                ConverterParameter={x:Static viewModels:ChapterMode.RandomTimeSpan}}" Content="Random Section"/>
 
                             <DockPanel Margin="4" ToolTip="The approximate duration of randomly selected sections.">
                                 <TextBlock Style="{StaticResource SettingName}" Text="Target Duration"/>
@@ -163,6 +204,21 @@
                             <CheckBox Margin="4" IsChecked="{Binding Settings.NotifyGaps}" Content="Gaps / Events"/>
                         </StackPanel>
                     </Grid>
+                    <Grid controls:PageSelector.ContentIdentifier="Displayed Time">
+                        <controls:PageSelector.Header>
+                            <controls:AwesomeTextBlock Text="{x:Static fa:FontAwesome.fa_clock_o}"/>
+                        </controls:PageSelector.Header>
+                        <StackPanel>
+                            <CheckBox Margin="4" IsChecked="{Binding Settings.ShowTimeLeft}" Content="Show time left instead of elapsed"/>
+                            <CheckBox Margin="4" IsChecked="{Binding Settings.LimitDisplayedTimeToSelection}" Content="Limit to active selection"/>
+                            <TextBlock Margin="4" Text="Mode:"/>
+                            <StackPanel Margin="12,0,0,0">
+                                <RadioButton Margin="2" HorizontalAlignment="Stretch" IsChecked="{Binding Path=Settings.TimeDisplayMode, Converter={StaticResource BooleanConverter}, ConverterParameter={x:Static viewModels:TimeDisplayMode.Original}}" Content="Media Progress" />
+                                <RadioButton Margin="2" HorizontalAlignment="Stretch" IsChecked="{Binding Path=Settings.TimeDisplayMode, Converter={StaticResource BooleanConverter}, ConverterParameter={x:Static viewModels:TimeDisplayMode.ContentAndGaps}}" Content="Content and gaps" />
+                                <RadioButton Margin="2" HorizontalAlignment="Stretch" IsChecked="{Binding Path=Settings.TimeDisplayMode, Converter={StaticResource BooleanConverter}, ConverterParameter={x:Static viewModels:TimeDisplayMode.ContentOnly}}" Content="Content only" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
                     <Grid controls:PageSelector.ContentIdentifier="Debug">
                         <controls:PageSelector.Header>
                             <controls:AwesomeTextBlock Text="{x:Static fa:FontAwesome.fa_bug}"/>
@@ -232,6 +288,36 @@
                                     <Button DockPanel.Dock="Right" Content="Use Default" HorizontalAlignment="Left" Margin="4" VerticalAlignment="Top" Width="75" Height="23" Click="BtnZoomDefault_Click"/>
                                     <TextBox Text="{Binding Settings.ZoomPlayerEndpoint}" Height="23" Margin="0,4,4,4" VerticalAlignment="Center"/>
                                 </DockPanel>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Kodi" FontWeight="Bold" Margin="0,10,0,0"/>
+                                <StackPanel>
+                                    <DockPanel>
+                                        <TextBlock Width="60" HorizontalAlignment="Left" Margin="20,4,4,4" TextWrapping="Wrap" Text="IP" VerticalAlignment="Center"/>
+                                        <Button DockPanel.Dock="Right" Tag="IpDefault" Content="Use Default" HorizontalAlignment="Left" Margin="4" VerticalAlignment="Top" Width="75" Height="23" Click="BtnKodiDefault_Click"/>
+                                        <TextBox Text="{Binding Settings.KodiIp}" Height="23" Margin="0,4,4,4" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <DockPanel>
+                                        <TextBlock Width="60" HorizontalAlignment="Left" Margin="20,4,4,4" TextWrapping="Wrap" Text="HTTP Port" VerticalAlignment="Center"/>
+                                        <Button DockPanel.Dock="Right" Tag="HttpPortDefault" Content="Use Default" HorizontalAlignment="Left" Margin="4" VerticalAlignment="Top" Width="75" Height="23" Click="BtnKodiDefault_Click"/>
+                                        <TextBox Text="{Binding Settings.KodiHttpPort}" Height="23" Margin="0,4,4,4" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <DockPanel>
+                                        <TextBlock Width="60" HorizontalAlignment="Left" Margin="20,4,4,4" TextWrapping="Wrap" Text="TCP Port" VerticalAlignment="Center"/>
+                                        <Button DockPanel.Dock="Right" Tag="TcpPortDefault" Content="Use Default" HorizontalAlignment="Left" Margin="4" VerticalAlignment="Top" Width="75" Height="23" Click="BtnKodiDefault_Click"/>
+                                        <TextBox Text="{Binding Settings.KodiTcpPort}" Height="23" Margin="0,4,4,4" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <DockPanel>
+                                        <TextBlock Width="60" HorizontalAlignment="Left" Margin="20,4,4,4" TextWrapping="Wrap" Text="User" VerticalAlignment="Center"/>
+                                        <Button DockPanel.Dock="Right" Tag="UserDefault" Content="Use Default" HorizontalAlignment="Left" Margin="4" VerticalAlignment="Top" Width="75" Height="23" Click="BtnKodiDefault_Click"/>
+                                        <TextBox Text="{Binding Settings.KodiUser}" Height="23" Margin="0,4,4,4" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <DockPanel>
+                                        <TextBlock Width="60" HorizontalAlignment="Left" Margin="20,4,4,4" TextWrapping="Wrap" Text="Password" VerticalAlignment="Center"/>
+                                        <Button DockPanel.Dock="Right" Tag="PasswordDefault" Content="Use Default" HorizontalAlignment="Left" Margin="4" VerticalAlignment="Top" Width="75" Height="23" Click="BtnKodiDefault_Click"/>
+                                        <PasswordBox x:Name="txtPasswordKodiPassword" PasswordChanged="TxtPasswordKodiPassword_OnPasswordChanged" Height="23" Margin="0,4,4,4" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                </StackPanel>
                             </StackPanel>
                         </StackPanel>
                     </Grid>
@@ -440,6 +526,7 @@
                             <CheckBox Margin="4" Content="Playlist" IsChecked="{Binding Settings.RememberPlaylist}"/>
                             <CheckBox Margin="4" Content="Volume" IsChecked="{Binding Settings.RememberVolume}"/>
                             <CheckBox Margin="4" Content="Playback Mode" IsChecked="{Binding Settings.RememberPlaybackMode}"/>
+                            <CheckBox Margin="4" Content="Window Position" IsChecked="{Binding Settings.RememberWindowPosition}"/>
                         </StackPanel>
                     </Grid>
                 </controls:PageSelector.Elements>
